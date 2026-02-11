@@ -10,25 +10,24 @@
  *=========================================================*/
 
 /* ── Game states ──────────────────────────────────────── */
-enum GameState
-{
-    STATE_MENU,
-    STATE_GAME,
-    STATE_LEADERBOARD,
-    STATE_OPTIONS,
-    STATE_ABOUT,
-    STATE_EXIT
+enum GameState {
+  STATE_MENU,
+  STATE_GAME,
+  STATE_GAMEOVER,
+  STATE_LEADERBOARD,
+  STATE_OPTIONS,
+  STATE_ABOUT,
+  STATE_EXIT
 };
 
 /* ── Menu button descriptor ────────────────────────────── */
-struct MenuButton
-{
-    unsigned int texture;   /* OpenGL texture id              */
-    int   x, y;             /* bottom-left position (native)  */
-    int   w, h;             /* native pixel dimensions        */
-    float scale;            /* current draw scale (1.0 norm.) */
-    float targetScale;      /* desired scale (lerp target)    */
-    GameState target;       /* state to switch to on click    */
+struct MenuButton {
+  unsigned int texture; /* OpenGL texture id              */
+  int x, y;             /* bottom-left position (native)  */
+  int w, h;             /* native pixel dimensions        */
+  float scale;          /* current draw scale (1.0 norm.) */
+  float targetScale;    /* desired scale (lerp target)    */
+  GameState target;     /* state to switch to on click    */
 };
 
 /* ── Total number of clickable buttons ─────────────────── */
