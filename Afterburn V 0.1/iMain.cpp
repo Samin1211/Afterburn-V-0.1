@@ -1,86 +1,124 @@
 #include "iGraphics.h"
+#include "menu.h"
 
-int x = 0;
-int y = 0;
+/* ══════════════════════════════════════════════════════════
+ *  GAME STAGE
+ *  Includes separate modules for Road and UI.
+ * ══════════════════════════════════════════════════════════ */
 
-void iDraw()
-{
-	iClear();
-	iFilledRectangle(x, y, 100, 100);
-	iSetColor(255, 255, 255);
+#include "Road.h"
+#include "UI.h"
 
+/* ── gameInit ─────────────────────────────────────────────
+ *  Call once from main(), after iInitialize().
+ *  Loads all game-stage assets.                                 */
+void gameInit(void) {
+  /* Load Road assets */
+  roadInit();
+
+  /* Load UI/HUD assets */
+  uiInit();
 }
 
-void iMouseMove(int mx, int my)
-{
-	
+/* ── gameDraw ─────────────────────────────────────────────
+ *  Render the game-stage scene.
+ *  Called from iDraw() when gameState == STATE_GAME.            */
+void gameDraw(void) {
+  iClear();
+
+  /* ── 1. Road background ──────────────────────────────── */
+  roadDraw();
+
+  /* TODO: draw cars, enemies here (between road and HUD) */
+
+  /* ── 2. HUD Overlay (Health Bar, Stars) ──────────────── */
+  uiDraw();
 }
 
-void iPassiveMouseMove(int mx, int my)
-{
-	
+/* ── GAME STAGE END ───────────────────────────────────────── */
+
+/* ── Current game state ─────────────────────────────────── */
+static GameState gameState = STATE_MENU;
+
+/* ── iDraw: route rendering to the active state ─────────── */
+void iDraw() {
+  iClear();
+
+  switch (gameState) {
+  case STATE_MENU:
+    menuDraw();
+    break;
+
+  case STATE_GAME:
+    /* ── Use the real game stage instead of the placeholder ── */
+    gameDraw();
+    break;
+
+  case STATE_LEADERBOARD:
+    drawPlaceholderLeaderboard();
+    break;
+
+  case STATE_OPTIONS:
+    drawPlaceholderOptions();
+    break;
+
+  case STATE_ABOUT:
+    drawPlaceholderAbout();
+    break;
+
+  default:
+    break;
+  }
 }
 
-void iMouse(int button, int state, int mx, int my)
-{
-	
-	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
-	{
+/* ── Mouse drag (unused for now) ────────────────────────── */
+void iMouseMove(int mx, int my) {}
 
-		
-	}
-	
-	
-	if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN)
-	{
-		
-	}
+/* ── Passive mouse move: forward to menu for hover ──────── */
+void iPassiveMouseMove(int mx, int my) {
+  if (gameState == STATE_MENU) {
+    menuMouseMove(mx, my);
+  }
 }
 
-// Special Keys:
-// GLUT_KEY_F1, GLUT_KEY_F2, GLUT_KEY_F3, GLUT_KEY_F4, GLUT_KEY_F5, GLUT_KEY_F6, GLUT_KEY_F7, GLUT_KEY_F8, GLUT_KEY_F9, GLUT_KEY_F10, GLUT_KEY_F11, GLUT_KEY_F12, 
-// GLUT_KEY_LEFT, GLUT_KEY_UP, GLUT_KEY_RIGHT, GLUT_KEY_DOWN, GLUT_KEY_PAGE UP, GLUT_KEY_PAGE DOWN, GLUT_KEY_HOME, GLUT_KEY_END, GLUT_KEY_INSERT
-
-void fixedUpdate()
-{
-	if (isKeyPressed('w') || isSpecialKeyPressed(GLUT_KEY_UP))
-	{
-		y++;
-	}
-	if (isKeyPressed('a') || isSpecialKeyPressed(GLUT_KEY_LEFT))
-	{
-		x--;
-	}
-	if (isKeyPressed('s') || isSpecialKeyPressed(GLUT_KEY_DOWN))
-	{
-		y--;
-	}
-	if (isKeyPressed('d') || isSpecialKeyPressed(GLUT_KEY_RIGHT))
-	{
-		x++;
-	}
-
-	if (isKeyPressed(' ')) {
-		// Playing the audio once
-		mciSendString("play ggsong from 0", NULL, 0, NULL);
-	}
+/* ── Mouse click ────────────────────────────────────────── */
+void iMouse(int button, int state, int mx, int my) {
+  if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+    if (gameState == STATE_MENU) {
+      gameState = menuMouseClick(mx, my);
+    }
+  }
 }
 
+/* ── Fixed update: keyboard polling ─────────────────────── */
+void fixedUpdate() {
+  /* ESC returns to the main menu from any state */
+  if (isKeyPressed(27)) /* 27 = ASCII Escape */
+  {
+    if (gameState != STATE_MENU) {
+      gameState = STATE_MENU;
+    }
+  }
+}
 
-int main()
-{
-	// Opening/Loading the audio files
-	mciSendString("open \"Audios//background.mp3\" alias bgsong", NULL, 0, NULL);
-	mciSendString("open \"Audios//gameover.mp3\" alias ggsong", NULL, 0, NULL);
+/* ── Entry point ────────────────────────────────────────── */
+int main() {
+  /* NOTE: Audio loading is preserved but playback is
+     disabled during the menu state.  Uncomment when
+     gameplay is implemented.
+     mciSendString("open \"Audios//background.mp3\" alias bgsong", NULL, 0,
+     NULL); mciSendString("open \"Audios//gameover.mp3\" alias ggsong", NULL, 0,
+     NULL); mciSendString("play bgsong repeat", NULL, 0, NULL);
+  */
 
-	// Playing the background audio on repeat
-	mciSendString("play bgsong repeat", NULL, 0, NULL);
+  iInitialize(1920, 1080, "Afterburn V 0.1");
 
-	// If the use of an audio is finished, close it to free memory
-	// mciSendString("close bgsong", NULL, 0, NULL);
-	// mciSendString("close ggsong", NULL, 0, NULL);
+  /* Load all menu assets before entering the main loop */
+  menuInit();
 
-	iInitialize(600, 400, "Project Title");
-	iStart();
-	return 0;
+  /* Load all game-stage assets (road texture, etc.) */
+  gameInit();
+
+  iStart();
+  return 0;
 }
