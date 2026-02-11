@@ -5,7 +5,6 @@
 #include <cstdlib>
 #include <vector>
 
-
 /* ══════════════════════════════════════════════════════════
  *  ENEMY & EXPLOSION MODULE
  *  Management of enemies, interactions, and FX.
@@ -100,7 +99,12 @@ void enemySpawn(void) {
 
     /* Initialize new enemy state */
     Enemy e; /* Temp template */
-    e.x = (float)(rand() % (1920 - ENEMY_WIDTH));
+    /* Spawn within Road Boundaries */
+    int range = ROAD_RIGHT_LIMIT - ENEMY_WIDTH - ROAD_LEFT_LIMIT;
+    if (range < 1)
+      range = 1;
+    e.x = ROAD_LEFT_LIMIT + (float)(rand() % range);
+
     /* Spawn from BEHIND (Bottom) */
     /* Add random offset to avoid stacking if multiple spawn at once */
     e.y = (float)(-ENEMY_HEIGHT - (rand() % 300));

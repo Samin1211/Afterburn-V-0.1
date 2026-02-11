@@ -30,8 +30,9 @@ void gameUpdate(void) {
     /* Update Enemies (Spawn, Move, Collisions) */
     enemyUpdate();
 
-    /* TODO: Check Game Over (Player Health <= 0) */
-    /* if (player.health <= 0) gameState = STATE_GAMEOVER; */
+    /* Check Game Over (Player Health <= 0) */
+    if (player.health <= 0)
+      gameState = STATE_GAMEOVER;
   }
 }
 
@@ -109,6 +110,14 @@ void iPassiveMouseMove(int mx, int my) {
 
 /* ── Mouse click ────────────────────────────────────────── */
 void iMouse(int button, int state, int mx, int my) {
+  if (button == GLUT_LEFT_BUTTON) {
+    if (state == GLUT_DOWN) {
+      player.isFiring = true;
+    } else if (state == GLUT_UP) {
+      player.isFiring = false;
+    }
+  }
+
   if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
     if (gameState == STATE_MENU) {
       gameState = menuMouseClick(mx, my);
