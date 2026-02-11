@@ -49,6 +49,10 @@ struct PlayerState {
   /* Firing State */
   bool isFiring;
   int shootTimer;
+  /* Status Effect */
+  int lossControlTimer;
+  /* Ammo */
+  int missileCount;
 };
 
 static PlayerState player;
@@ -107,11 +111,14 @@ static void iShowImageGrid(int x, int y, int w, int h, unsigned int texture,
   glDisable(GL_TEXTURE_2D);
 }
 
-/* ── init ───────────────────────────────────────────────── */
+/* ── init (load textures — call once) ────────────────── */
 void playerInit(void) {
   texCar = iLoadImage("Asset/Car.png");
   texProjectile = iLoadImage("Asset/projectile.png");
+}
 
+/* ── reset (state only — call on restart) ───────────── */
+void playerReset(void) {
   player.x = 960 - CAR_DRAW_W / 2;
   player.y = 100;
   player.health = PLAYER_MAX_HEALTH;
@@ -119,16 +126,22 @@ void playerInit(void) {
   player.active = true;
   player.isFiring = false;
   player.shootTimer = 0;
+  player.lossControlTimer = 0;
+  player.missileCount = 0;
   projectiles.clear();
 }
 
 /* ── shooting ───────────────────────────────────────────── */
 void playerShoot(void) {
+  /* Prevent shooting if lost control? User said "lose control of the car".
+   * Let's disable everything. */
+  if (player.lossControlTimer > 0)
+    return;
+
   Projectile p;
   float speed = 10.0f;
 
   /* Calculate direct vector to mouse for perfect accuracy */
-  /* Center of player car */
   float cx = player.x + CAR_DRAW_W / 2;
   float cy = player.y + CAR_DRAW_H / 2;
 
@@ -154,54 +167,47 @@ void playerUpdate(void) {
   if (!player.active)
     return;
 
-  /* Movement (WASD) */
-  if (isKeyPressed('w') || isKeyPressed('W'))
-    player.y += PLAYER_SPEED;
-  if (isKeyPressed('s') || isKeyPressed('S'))
-    player.y -= PLAYER_SPEED;
-  if (isKeyPressed('a') || isKeyPressed('A'))
-    player.x -= PLAYER_SPEED;
-  if (isKeyPressed('d') || isKeyPressed('D'))
-    player.x += PLAYER_SPEED;
+  /* Handle Loss of Control */
+  if (player.lossControlTimer > 0) {
+    player.lossControlTimer--;
+    /* Disable inputs */
+  } else {
+    /* Movement (WASD) */
+    if (isKeyPressed('w') || isKeyPressed('W'))
+      player.y += PLAYER_SPEED;
+    if (isKeyPressed('s') || isKeyPressed('S'))
+      player.y -= PLAYER_SPEED;
+    if (isKeyPressed('a') || isKeyPressed('A'))
+      player.x -= PLAYER_SPEED;
+    if (isKeyPressed('d') || isKeyPressed('D'))
+      player.x += PLAYER_SPEED;
 
-  /* Boundaries */
-  if (player.x < ROAD_LEFT_LIMIT)
-    player.x = ROAD_LEFT_LIMIT;
-  if (player.x > ROAD_RIGHT_LIMIT - CAR_DRAW_W)
-    player.x = ROAD_RIGHT_LIMIT - CAR_DRAW_W;
-  if (player.y < 0)
-    player.y = 0;
-  if (player.y > 1080 - CAR_DRAW_H)
-    player.y = 1080 - CAR_DRAW_H;
+    /* Boundaries */
+    if (player.x < ROAD_LEFT_LIMIT)
+      player.x = ROAD_LEFT_LIMIT;
+    if (player.x > ROAD_RIGHT_LIMIT - CAR_DRAW_W)
+      player.x = ROAD_RIGHT_LIMIT - CAR_DRAW_W;
+    if (player.y < 0)
+      player.y = 0;
+    if (player.y > 1080 - CAR_DRAW_H)
+      player.y = 1080 - CAR_DRAW_H;
 
-  /* Rotation & Aiming Logic */
-  float dx = (float)iMouseX - (player.x + CAR_DRAW_W / 2);
-  float dy = (float)iMouseY - (player.y + CAR_DRAW_H / 2);
+    /* Rotation & Aiming Logic */
+    float dx = (float)iMouseX - (player.x + CAR_DRAW_W / 2);
+    float dy = (float)iMouseY - (player.y + CAR_DRAW_H / 2);
 
-  /* Actual Angle (Radians, CCW) for math if needed */
-  player.shootAngle = atan2(dy, dx);
+    player.shootAngle = atan2(dy, dx);
+    float deg = player.shootAngle * 180.0f / PI;
+    player.angle = deg;
 
-  /* Visual Angle (Degrees) */
-  /* User feedback: "if I move anti clockwise cannon should move anti clockwise"
-   */
-  /* Standard atan2 is CCW. So mapping angle directly should work if sprites are
-   * CCW. If sprites are CW, we negate. Let's use standard CCW angle first. +90
-   * deg offset? or 0? Usually 0 deg is Right. `player.angle` logic:
-   */
-  float deg = player.shootAngle * 180.0f / PI;
-  /* Just use the degree directly. If it feels inverted, user will say.
-   * Previous attempt inverted it (-atan2).
-   * User said "messed up". So revert to standard atan2.
-   */
-  player.angle = deg;
+    /* Continuous Fire Logic */
+    if (player.shootTimer > 0)
+      player.shootTimer--;
 
-  /* Continuous Fire Logic */
-  if (player.shootTimer > 0)
-    player.shootTimer--;
-
-  if (player.isFiring && player.shootTimer == 0) {
-    playerShoot();
-    player.shootTimer = SHOOT_COOLDOWN;
+    if (player.isFiring && player.shootTimer == 0) {
+      playerShoot();
+      player.shootTimer = SHOOT_COOLDOWN;
+    }
   }
 
   /* Update Projectiles */

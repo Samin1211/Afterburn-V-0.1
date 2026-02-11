@@ -17,12 +17,14 @@
 static unsigned int texRoad = 0;
 static float roadY = 0.0f;
 
-/* ── Init ───────────────────────────────────────────────── */
+/* ── Init (load textures — call once) ────────────────────── */
 void roadInit(void) {
   /* Road background – scaled to fill the full 1920x1080 window */
   texRoad = iLoadImage("Asset/Roads/road 4.png");
-  roadY = 0.0f;
 }
+
+/* ── Reset (state only — call on restart) ──────────────── */
+void roadReset(void) { roadY = 0.0f; }
 
 /* ── Update ─────────────────────────────────────────────── */
 void roadUpdate(void) {

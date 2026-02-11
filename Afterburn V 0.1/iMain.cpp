@@ -36,12 +36,24 @@ void gameUpdate(void) {
   }
 }
 
-/*  gameInit  –  Call once from main()                       */
+/*  gameInit  –  Call once from main() (loads all textures)   */
 void gameInit(void) {
   roadInit();
   uiInit();
   playerInit();
   enemyInit();
+
+  /* Also reset state on first init */
+  roadReset();
+  playerReset();
+  enemyReset();
+}
+
+/*  gameReset – Lightweight state-only reset (no I/O)         */
+void gameReset(void) {
+  roadReset();
+  playerReset();
+  enemyReset();
 }
 
 /*  gameDraw  –  Render the game scene                       */
@@ -113,14 +125,22 @@ void iMouse(int button, int state, int mx, int my) {
   if (button == GLUT_LEFT_BUTTON) {
     if (state == GLUT_DOWN) {
       player.isFiring = true;
-    } else if (state == GLUT_UP) {
+    }
+    if (state == GLUT_UP) {
       player.isFiring = false;
     }
+  }
+  if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN) {
+    firePlayerMissile();
   }
 
   if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
     if (gameState == STATE_MENU) {
-      gameState = menuMouseClick(mx, my);
+      GameState next = menuMouseClick(mx, my);
+      if (next == STATE_GAME) {
+        gameReset(); /* Reset everything for a fresh game */
+      }
+      gameState = next;
     } else if (gameState == STATE_GAME) {
       /* Fire cannon! */
       playerShoot();
@@ -128,24 +148,39 @@ void iMouse(int button, int state, int mx, int my) {
   }
 }
 
-/* ── Keyboard input (polled in fixedUpdate or checks) ───── */
+/* ── Keyboard input (polled every frame by iGraphics) ───── */
 void fixedUpdate() {
+  /* Restart (R key, case-insensitive) */
+  if (isKeyPressed('r') || isKeyPressed('R')) {
+    if (gameState == STATE_GAMEOVER ||
+        (gameState == STATE_GAME && getPhase() == PHASE_WIN)) {
+      gameReset();
+      gameState = STATE_GAME;
+    }
+  }
+
   /* ESC returns to the main menu from any state */
   if (isKeyPressed(27)) /* 27 = ASCII Escape */
   {
     if (gameState != STATE_MENU) {
+      gameReset(); /* Reset so returning to game later is clean */
       gameState = STATE_MENU;
     }
   }
+}
 
-  /* R to restart logic */
-  if (gameState == STATE_GAMEOVER) {
-    if (isKeyPressed('r') || isKeyPressed('R')) {
-      playerInit();
-      enemyInit();
-      roadInit();
+/* ── Keyboard input (iGraphics callback) ────────────────── */
+void iKeyboard(unsigned char key) {
+  if (gameState == STATE_GAMEOVER ||
+      (gameState == STATE_GAME && getPhase() == PHASE_WIN)) {
+    if (key == 'r' || key == 'R') {
+      gameReset(); /* Reset Everything */
       gameState = STATE_GAME;
     }
+    if (key == 27) { /* ESC */
+      gameState = STATE_MENU;
+    }
+    return;
   }
 }
 

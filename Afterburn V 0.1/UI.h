@@ -13,6 +13,7 @@
 /* ── Texture handles ────────────────────────────────────── */
 static unsigned int texHealthBar = 0;  /* health bar frame/skin */
 static unsigned int texStarSystem = 0; /* star sprite sheet     */
+static unsigned int texWinBg = 0;      /* win screen background */
 
 /* ── HUD layout constants (pixels, 1920x1080 canvas) ───── */
 
@@ -80,6 +81,7 @@ static void iShowImageSub(int x, int y, int w, int h, unsigned int texture,
 void uiInit(void) {
   texHealthBar = iLoadImage("Asset/Health Bar.png");
   texStarSystem = iLoadImage("Asset/Star System.png");
+  texWinBg = iLoadImage("Asset/Menu files/background.png");
 }
 
 /* ── uiDraw ─────────────────────────────────────────────── */
@@ -115,17 +117,55 @@ void uiDraw(void) {
                 STAR_ROWS);
 
   /* ── 3. Score ────────────────────────────────────────── */
-  char scoreStr[32];
-  sprintf_s(scoreStr, 32, "Score: %d", player.score);
-  iSetColor(255, 255, 255);
-  /* Use a large font or default? iGraphics default font is small.
-   * iText(x, y, str, font) -> font is void* usually GLUT_BITMAP_...
-   * iGraphics.h usually wraps iText(x, y, str,
-   * font=GLUT_BITMAP_TIMES_ROMAN_24). iText(x, y, str) uses default.
-   */
-  iText(SCORE_X, SCORE_Y, scoreStr, GLUT_BITMAP_TIMES_ROMAN_24);
+  /* ── 3. Score & Level ────────────────────────────────── */
+  StagePhase phase = getPhase(); /* Helper from Enemy.h */
 
-  /* ── 4. Game Over Overlay ────────────────────────────── */
+  if (phase == PHASE_WARNING) {
+    iSetColor(255, 0, 0);
+    iText(SCORE_X, SCORE_Y, "BEWARE!!!", GLUT_BITMAP_TIMES_ROMAN_24);
+  } else {
+    iSetColor(255, 255, 255);
+    char scoreStr[32];
+    sprintf_s(scoreStr, 32, "Score: %d", player.score);
+    iText(SCORE_X, SCORE_Y, scoreStr, GLUT_BITMAP_TIMES_ROMAN_24);
+  }
+
+  /* ── 4. Status Effects ────────────────────────────── */
+  if (player.lossControlTimer > 0) {
+    iSetColor(255, 0, 0);
+    iText(SCORE_X, SCORE_Y - 40, "LOST CONTROL!!!", GLUT_BITMAP_TIMES_ROMAN_24);
+  }
+
+  /* ── 5. Boss Stage HUD ────────────────────────────── */
+  /* BEWARE handled above */
+
+  if (phase == PHASE_BOSS) {
+    /* Boss HP */
+    char bossStr[32];
+    sprintf_s(bossStr, "BOSS: %d%%", getBossHealth() / 2); /* 200 -> 100% */
+    iSetColor(255, 0, 0);
+    iText(960 - 50, 1000, bossStr, GLUT_BITMAP_TIMES_ROMAN_24);
+
+    /* Missiles */
+    char misStr[32];
+    sprintf_s(misStr, "Missile: %d/5", player.missileCount);
+    iSetColor(255, 255, 255);
+    iText(50, 50, misStr, GLUT_BITMAP_TIMES_ROMAN_24);
+  }
+
+  if (phase == PHASE_WIN) {
+    /* Win Screen: Background overlay + text */
+    iShowImage(0, 0, 1920, 1080, texWinBg);
+    iSetColor(255, 255, 255);
+    iText(960 - 150, 540 + 40, "Congratulations, You win.",
+          GLUT_BITMAP_TIMES_ROMAN_24);
+    iText(960 - 120, 540 - 10, "Press 'R' to restart.",
+          GLUT_BITMAP_TIMES_ROMAN_24);
+    iText(960 - 130, 540 - 60, "Press 'ESC' to escape.",
+          GLUT_BITMAP_TIMES_ROMAN_24);
+  }
+
+  /* ── 6. Game Over Overlay ────────────────────────────── */
   if (gameState == STATE_GAMEOVER) {
     iSetColor(255, 0, 0);
     iText(960 - 50, 540 + 20, "YOU LOSE", GLUT_BITMAP_TIMES_ROMAN_24);
