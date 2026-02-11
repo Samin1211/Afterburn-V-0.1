@@ -257,8 +257,8 @@ GameState menuMouseClick(int mx, int my)
 static void drawPlaceholderScreen(char *title, int r, int g, int b)
 {
     iClear();
-    iSetColor(r, g, b);
-    iFilledRectangle(0, 0, 1920, 1080);
+    /* Show Background.png instead of a solid color */
+    iShowImage(0, 0, 1920, 1080, texBackground);
 
     iSetColor(255, 255, 255);
     iText(760, 560, title, GLUT_BITMAP_TIMES_ROMAN_24);

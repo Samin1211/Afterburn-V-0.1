@@ -1,6 +1,46 @@
 #include "iGraphics.h"
 #include "menu.h"
 
+/* ══════════════════════════════════════════════════════════
+ *  GAME STAGE  –  variables, init, draw, input
+ *
+ *  Everything between the "GAME STAGE BEGIN" and
+ *  "GAME STAGE END" markers can later be moved into
+ *  a separate game.h / game.cpp pair.
+ * ══════════════════════════════════════════════════════════ */
+
+/* ── GAME STAGE BEGIN ─────────────────────────────────────── */
+
+/*  Texture handle for the road background.
+ *  Loaded once in gameInit(), drawn every frame in gameDraw().
+ *  (Move to game.h as: extern unsigned int texRoad;)            */
+static unsigned int texRoad = 0;
+
+/*  gameInit  –  call once from main(), after iInitialize().
+ *  Loads all game-stage assets.
+ *  (Move to game.h as: void gameInit(void);)                    */
+void gameInit(void)
+{
+	/* Road background – scaled to fill the full 1920x1080 window */
+	texRoad = iLoadImage("Asset/Roads/road 4.png");
+}
+
+/*  gameDraw  –  render the game-stage scene.
+ *  Called from iDraw() when gameState == STATE_GAME.
+ *  (Move to game.h as: void gameDraw(void);)                    */
+void gameDraw(void)
+{
+	iClear();
+
+	/* Draw road 4.png stretched to the entire screen (1920x1080) */
+	iShowImage(0, 0, 1920, 1080, texRoad);
+
+	/* TODO: draw cars, HUD, enemies, etc. on top of the road */
+}
+
+/* ── GAME STAGE END ───────────────────────────────────────── */
+
+
 /* ── Current game state ─────────────────────────────────── */
 static GameState gameState = STATE_MENU;
 
@@ -16,7 +56,8 @@ void iDraw()
 		break;
 
 	case STATE_GAME:
-		drawPlaceholderGame();
+		/* ── Use the real game stage instead of the placeholder ── */
+		gameDraw();
 		break;
 
 	case STATE_LEADERBOARD:
@@ -65,7 +106,7 @@ void iMouse(int button, int state, int mx, int my)
 /* ── Fixed update: keyboard polling ─────────────────────── */
 void fixedUpdate()
 {
-	/* ESC returns to the main menu from any placeholder */
+	/* ESC returns to the main menu from any state */
 	if (isKeyPressed(27))  /* 27 = ASCII Escape */
 	{
 		if (gameState != STATE_MENU)
@@ -90,6 +131,9 @@ int main()
 
 	/* Load all menu assets before entering the main loop */
 	menuInit();
+
+	/* Load all game-stage assets (road texture, etc.) */
+	gameInit();
 
 	iStart();
 	return 0;
