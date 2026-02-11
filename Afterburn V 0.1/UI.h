@@ -1,9 +1,13 @@
 #ifndef UI_H
 #define UI_H
 
+#include "Player.h"
+#include <stdio.h> /* sprintf */
+
 /* ══════════════════════════════════════════════════════════
  *  UI MODULE
  *  Manages the health bar, star system, and other HUD elements.
+ *  Dependencies: Player.h (for player state)
  * ══════════════════════════════════════════════════════════ */
 
 /* ── Texture handles ────────────────────────────────────── */
@@ -39,30 +43,13 @@ static unsigned int texStarSystem = 0; /* star sprite sheet     */
 /*  Star sprite sheet metrics                                    */
 #define STAR_ROWS 6 /* total rows in Star System.png      */
 
-/* ── Game-state variables ───────────────────────────────── */
+/*  Score Text Position */
+#define SCORE_X 20
+#define SCORE_Y (STAR_Y - 40)
 
-/*  Current health (0.0 – 1.0).  1.0 = full bar, 0.0 = empty.   */
-static float playerHealth = 1.0f;
-
-/*  Current star row to display (0-based).
- *  Row 0 = all 5 stars filled black (best rating).              */
-static int starRow = 0;
-
-/* ── iShowImageSub ────────────────────────────────────────
- *  Draws a HORIZONTAL STRIP of a texture (one "row" of a
- *  vertically-stacked sprite sheet).
- *
- *  rowIndex : 0-based row from the TOP of the image.
- *  totalRows: total number of equal-height rows in the sheet.
- *
- *  Uses the same OpenGL conventions as iShowImage() in
- *  iGraphics.h (V goes from 0 at bottom to -1 at top).          */
+/* ── iShowImageSub ──────────────────────────────────────── */
 static void iShowImageSub(int x, int y, int w, int h, unsigned int texture,
                           int rowIndex, int totalRows) {
-  /* Compute vertical texture coords for the requested row.
-   * In iGraphics' convention:
-   *   V = -1  → top of the image   (row 0 top edge)
-   *   V =  0  → bottom of the image (last row bottom edge) */
   float rowH = 1.0f / (float)totalRows;
   float vTop = -1.0f + (float)rowIndex * rowH;
   float vBottom = vTop + rowH;
@@ -89,32 +76,63 @@ static void iShowImageSub(int x, int y, int w, int h, unsigned int texture,
   glDisable(GL_TEXTURE_2D);
 }
 
-/* ── uiInit ───────────────────────────────────────────────
- *  Loads all UI assets.
- *  Call from gameInit() in iMain.cpp.                           */
+/* ── uiInit ─────────────────────────────────────────────── */
 void uiInit(void) {
   texHealthBar = iLoadImage("Asset/Health Bar.png");
   texStarSystem = iLoadImage("Asset/Star System.png");
 }
 
-/* ── uiDraw ───────────────────────────────────────────────
- *  Renders the HUD overlay.
- *  Call from gameDraw() in iMain.cpp.                           */
+/* ── uiDraw ─────────────────────────────────────────────── */
 void uiDraw(void) {
   /* ── 1. Health bar ───────────────────────────────────── */
-  /*  Step A: red fill rectangle (drawn first, behind the frame).
-   *  Width is proportional to playerHealth (1.0 = full).       */
+  /*  Calculate fill ratio from player.health (0-100) */
+  float hpRatio = player.health / 100.0f;
+  if (hpRatio < 0)
+    hpRatio = 0;
+  if (hpRatio > 1)
+    hpRatio = 1;
+
   iSetColor(255, 0, 0);
   iFilledRectangle(HB_X + HB_FILL_OX, HB_Y + HB_FILL_OY,
-                   (int)(HB_FILL_W * playerHealth), HB_FILL_H);
+                   (int)(HB_FILL_W * hpRatio), HB_FILL_H);
 
-  /*  Step B: health bar frame / skin on top (has transparency) */
-  iSetColor(255, 255, 255); /* Ensure color is white for texture */
+  /*  Frame on top */
+  iSetColor(255, 255, 255);
   iShowImage(HB_X, HB_Y, HB_DRAW_W, HB_DRAW_H, texHealthBar);
 
-  /* ── 2. Star system (row 0 = all 5 black stars) ──────── */
-  iShowImageSub(STAR_X, STAR_Y, STAR_DRAW_W, STAR_DRAW_H, texStarSystem,
-                starRow, STAR_ROWS);
+  /* ── 2. Star system ──────────────────────────────────── */
+  /*  Update based on score. > 500 = Row 1 (1 Star). Else Row 0 (0 Stars).
+   *  Assuming Row 0 is "Empty" or "0 Stars" (User said "replace with second
+   * row... show player has attained 1 star") So Row 0 is default. Row 1 is 1
+   * Star.
+   */
+  int row = 0;
+  if (player.score >= 500)
+    row = 1;
+  /* Future: if >= 1000 row = 2 etc. */
+
+  iShowImageSub(STAR_X, STAR_Y, STAR_DRAW_W, STAR_DRAW_H, texStarSystem, row,
+                STAR_ROWS);
+
+  /* ── 3. Score ────────────────────────────────────────── */
+  char scoreStr[32];
+  sprintf_s(scoreStr, 32, "Score: %d", player.score);
+  iSetColor(255, 255, 255);
+  /* Use a large font or default? iGraphics default font is small.
+   * iText(x, y, str, font) -> font is void* usually GLUT_BITMAP_...
+   * iGraphics.h usually wraps iText(x, y, str,
+   * font=GLUT_BITMAP_TIMES_ROMAN_24). iText(x, y, str) uses default.
+   */
+  iText(SCORE_X, SCORE_Y, scoreStr, GLUT_BITMAP_TIMES_ROMAN_24);
+
+  /* ── 4. Game Over Overlay ────────────────────────────── */
+  if (gameState == STATE_GAMEOVER) {
+    iSetColor(255, 0, 0);
+    iText(960 - 50, 540 + 20, "YOU LOSE", GLUT_BITMAP_TIMES_ROMAN_24);
+    iSetColor(255, 255, 255);
+    iText(960 - 80, 540 - 20, "Press 'R' to Restart", GLUT_BITMAP_HELVETICA_18);
+    iText(960 - 80, 540 - 50, "Press 'ESC' to Menu", GLUT_BITMAP_HELVETICA_18);
+  }
 }
 
 #endif /* UI_H */

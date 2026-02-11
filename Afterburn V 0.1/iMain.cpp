@@ -2,43 +2,65 @@
 #include "menu.h"
 
 /* ══════════════════════════════════════════════════════════
- *  GAME STAGE
- *  Includes separate modules for Road and UI.
+ *  GLOBAL STATE & MODULES
  * ══════════════════════════════════════════════════════════ */
 
+/*  Current game state (Must be declared before use) */
+static GameState gameState = STATE_MENU;
+
+#include "Enemy.h"
+#include "Player.h"
 #include "Road.h"
 #include "UI.h"
 
-/* ── gameInit ─────────────────────────────────────────────
- *  Call once from main(), after iInitialize().
- *  Loads all game-stage assets.                                 */
-void gameInit(void) {
-  /* Load Road assets */
-  roadInit();
+/* ══════════════════════════════════════════════════════════
+ *  GAME LOOP & LOGIC
+ * ══════════════════════════════════════════════════════════ */
 
-  /* Load UI/HUD assets */
-  uiInit();
+/*  gameUpdate  –  Called by timer every ~16ms (60 FPS)      */
+void gameUpdate(void) {
+  /* Only update game logic if in Playing State */
+  if (gameState == STATE_GAME) {
+    /* Update Player (Movement, Rotation, Projectiles) */
+    playerUpdate();
+
+    /* Update Road (Scrolling) */
+    roadUpdate();
+
+    /* Update Enemies (Spawn, Move, Collisions) */
+    enemyUpdate();
+
+    /* TODO: Check Game Over (Player Health <= 0) */
+    /* if (player.health <= 0) gameState = STATE_GAMEOVER; */
+  }
 }
 
-/* ── gameDraw ─────────────────────────────────────────────
- *  Render the game-stage scene.
- *  Called from iDraw() when gameState == STATE_GAME.            */
+/*  gameInit  –  Call once from main()                       */
+void gameInit(void) {
+  roadInit();
+  uiInit();
+  playerInit();
+  enemyInit();
+}
+
+/*  gameDraw  –  Render the game scene                       */
 void gameDraw(void) {
   iClear();
 
-  /* ── 1. Road background ──────────────────────────────── */
+  /* 1. Road Background */
   roadDraw();
 
-  /* TODO: draw cars, enemies here (between road and HUD) */
+  /* 2. Game Entities (Player, Enemies, Projectiles) */
+  playerDraw();
+  enemyDraw();
 
-  /* ── 2. HUD Overlay (Health Bar, Stars) ──────────────── */
+  /* 3. HUD Overlay */
   uiDraw();
 }
 
-/* ── GAME STAGE END ───────────────────────────────────────── */
-
-/* ── Current game state ─────────────────────────────────── */
-static GameState gameState = STATE_MENU;
+/* ══════════════════════════════════════════════════════════
+ *  MAIN / CALLBACKS
+ * ══════════════════════════════════════════════════════════ */
 
 /* ── iDraw: route rendering to the active state ─────────── */
 void iDraw() {
@@ -50,7 +72,7 @@ void iDraw() {
     break;
 
   case STATE_GAME:
-    /* ── Use the real game stage instead of the placeholder ── */
+  case STATE_GAMEOVER:
     gameDraw();
     break;
 
@@ -71,11 +93,15 @@ void iDraw() {
   }
 }
 
-/* ── Mouse drag (unused for now) ────────────────────────── */
+/* ── Mouse drag (unused) ────────────────────────────────── */
 void iMouseMove(int mx, int my) {}
 
-/* ── Passive mouse move: forward to menu for hover ──────── */
+/* ── Passive mouse move: update global mouse pos ────────── */
 void iPassiveMouseMove(int mx, int my) {
+  /* Update iGraphics globals if not auto-updated */
+  iMouseX = mx;
+  iMouseY = my;
+
   if (gameState == STATE_MENU) {
     menuMouseMove(mx, my);
   }
@@ -86,11 +112,14 @@ void iMouse(int button, int state, int mx, int my) {
   if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
     if (gameState == STATE_MENU) {
       gameState = menuMouseClick(mx, my);
+    } else if (gameState == STATE_GAME) {
+      /* Fire cannon! */
+      playerShoot();
     }
   }
 }
 
-/* ── Fixed update: keyboard polling ─────────────────────── */
+/* ── Keyboard input (polled in fixedUpdate or checks) ───── */
 void fixedUpdate() {
   /* ESC returns to the main menu from any state */
   if (isKeyPressed(27)) /* 27 = ASCII Escape */
@@ -99,24 +128,30 @@ void fixedUpdate() {
       gameState = STATE_MENU;
     }
   }
+
+  /* R to restart logic */
+  if (gameState == STATE_GAMEOVER) {
+    if (isKeyPressed('r') || isKeyPressed('R')) {
+      playerInit();
+      enemyInit();
+      roadInit();
+      gameState = STATE_GAME;
+    }
+  }
 }
 
 /* ── Entry point ────────────────────────────────────────── */
 int main() {
-  /* NOTE: Audio loading is preserved but playback is
-     disabled during the menu state.  Uncomment when
-     gameplay is implemented.
-     mciSendString("open \"Audios//background.mp3\" alias bgsong", NULL, 0,
-     NULL); mciSendString("open \"Audios//gameover.mp3\" alias ggsong", NULL, 0,
-     NULL); mciSendString("play bgsong repeat", NULL, 0, NULL);
-  */
+  /* Audio loading (commented out) */
+  /* mciSendString("...", NULL, 0, NULL); */
 
   iInitialize(1920, 1080, "Afterburn V 0.1");
 
-  /* Load all menu assets before entering the main loop */
-  menuInit();
+  /* Initialize Timer for Game Loop (60 FPS) */
+  iSetTimer(16, gameUpdate);
 
-  /* Load all game-stage assets (road texture, etc.) */
+  /* Initialize Systems */
+  menuInit();
   gameInit();
 
   iStart();
