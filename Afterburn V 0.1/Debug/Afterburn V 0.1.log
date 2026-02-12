@@ -1,4 +1,4 @@
-﻿Build started 2/12/2026 2:32:06 PM.
+﻿Build started 2/12/2026 2:48:38 PM.
      1>Project "E:\Game project\Game\Afterburn-V-0.1\Afterburn V 0.1\Afterburn V 0.1.vcxproj" on node 2 (Build target(s)).
      1>ClCompile:
          E:\Softwere and games\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt iMain.cpp
@@ -11,4 +11,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:01.08
+Time Elapsed 00:00:01.35
