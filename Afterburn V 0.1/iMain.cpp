@@ -6,12 +6,13 @@
  * ══════════════════════════════════════════════════════════ */
 
 /*  Current game state (Must be declared before use) */
-static GameState gameState = STATE_MENU;
+GameState gameState = STATE_MENU;
 
 #include "Enemy.h"
 #include "Player.h"
 #include "Road.h"
 #include "UI.h"
+#include "options.h"
 
 /* ══════════════════════════════════════════════════════════
  *  GAME LOOP & LOGIC
@@ -40,6 +41,7 @@ void gameUpdate(void) {
 void gameInit(void) {
   roadInit();
   uiInit();
+  optionsInit();
   playerInit();
   enemyInit();
 
@@ -94,7 +96,7 @@ void iDraw() {
     break;
 
   case STATE_OPTIONS:
-    drawPlaceholderOptions();
+    optionsDraw();
     break;
 
   case STATE_ABOUT:
@@ -117,6 +119,8 @@ void iPassiveMouseMove(int mx, int my) {
 
   if (gameState == STATE_MENU) {
     menuMouseMove(mx, my);
+  } else if (gameState == STATE_OPTIONS) {
+    optionsMouseMove(mx, my);
   }
 }
 
@@ -144,6 +148,8 @@ void iMouse(int button, int state, int mx, int my) {
     } else if (gameState == STATE_GAME) {
       /* Fire cannon! */
       playerShoot();
+    } else if (gameState == STATE_OPTIONS) {
+      optionsMouseClick(mx, my);
     }
   }
 }
