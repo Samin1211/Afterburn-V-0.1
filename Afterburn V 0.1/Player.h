@@ -198,7 +198,12 @@ void playerUpdate(void) {
 
     player.shootAngle = atan2(dy, dx);
     float deg = player.shootAngle * 180.0f / PI;
+    /* Angle is "visual angle", if user wants it raw. Keep it aligned with math. */
     player.angle = deg;
+    /* Adjust for sprite sheet orientation (Math CCW vs Sprite CW)
+     * If 0=Right (Math) -> 90 (Frame 9, Right)
+     * If 90=Up (Math) -> 0 (Frame 0, Up) */
+    player.spriteIndex = getFrameFromAngle(90.0f - deg);
 
     /* Continuous Fire Logic */
     if (player.shootTimer > 0)
@@ -237,7 +242,7 @@ void playerDraw(void) {
   if (!player.active)
     return;
 
-  int frame = getFrameFromAngle(player.angle);
+  int frame = player.spriteIndex;
 
   iShowImageGrid((int)player.x, (int)player.y, CAR_DRAW_W, CAR_DRAW_H, texCar,
                  frame, CAR_SHEET_ROWS, CAR_SHEET_COLS);
