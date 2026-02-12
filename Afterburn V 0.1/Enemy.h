@@ -398,8 +398,7 @@ void enemyUpdate(void) {
       boss.active = true;
       boss.x = 960 - 125; /* Center (250w) */
       boss.y = 1200;      /* Top */
-      if (boss.health <= 0)
-        boss.health = 200;
+      boss.health = 200;
       boss.maxHealth = 200;
       boss.state = 0; /* Ram */
       boss.timer = 0;
@@ -738,7 +737,7 @@ void enemyUpdate(void) {
 
     /* Collisions */
     /* Vs Player */
-    if (player.active &&
+    if (player.active && enemies[i].type != TYPE_SPECIAL1 &&
         checkAABB(enemies[i].x, enemies[i].y, ENEMY_WIDTH, ENEMY_WIDTH,
                   player.x, player.y, CAR_DRAW_W, CAR_DRAW_H)) {
       player.health -= ENEMY_RAM_DMG;

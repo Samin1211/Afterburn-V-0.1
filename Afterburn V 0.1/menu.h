@@ -20,6 +20,8 @@ enum GameState {
   STATE_EXIT
 };
 
+extern GameState gameState;
+
 /* ── Menu button descriptor ────────────────────────────── */
 struct MenuButton {
   unsigned int texture; /* OpenGL texture id              */
