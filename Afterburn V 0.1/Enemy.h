@@ -137,6 +137,11 @@ static unsigned int texTorpedo = 0;
 
 /* Tracking for Special Spawn */
 static int lastSpecialScore = 400; /* Start offset so 500 triggers first */
+static int truckDelayTimer = 0;
+static int bossDeathTimer = 0;
+
+/* Helper to check if boss is in dying animation (for Game Over prevention) */
+bool isBossDying() { return boss.active && boss.state == 4; }
 
 /* ── Helpers ────────────────────────────────────────────── */
 static bool checkAABB(float x1, float y1, float w1, float h1, float x2,
@@ -213,6 +218,10 @@ void enemyReset(void) {
   boss.timer = 0;
   boss.x = 0;
   boss.y = 0;
+
+  /* Reset Timers */
+  bossDeathTimer = 0;
+  truckDelayTimer = 0;
 
   /* Reset Truck state */
   truck.active = false;
@@ -415,14 +424,20 @@ void enemyUpdate(void) {
           activeMissiles = true;
 
       if (!activeMissiles) {
-        /* Spawn Truck — boss stays active */
-        truck.active = true;
-        truck.x = 960 - 128;
-        truck.y = -300;
-        truck.state = 0;
-        truck.timer = 0;
-        truck.animFrame = 0;
+        truckDelayTimer++;
+        if (truckDelayTimer > 300) { /* 5 Second Delay (60fps) */
+          /* Spawn Truck — boss stays active */
+          truck.active = true;
+          truck.x = 960 - 128;
+          truck.y = -300;
+          truck.state = 0;
+          truck.timer = 0;
+          truck.animFrame = 0;
+          truckDelayTimer = 0;
+        }
       }
+    } else {
+      truckDelayTimer = 0;
     }
 
     /* Truck Update (during boss fight) */
@@ -467,13 +482,7 @@ void enemyUpdate(void) {
         player.missileCount = 5;
       } else if (orb.y < -150) {
         orb.active = false;
-        /* Respawn Truck */
-        truck.active = true;
-        truck.x = 960 - 128;
-        truck.y = -300;
-        truck.state = 0;
-        truck.timer = 0;
-        truck.animFrame = 0;
+        /* Truck respawn handled by main loop delay now */
       }
     }
     /* Player Missiles */
@@ -516,13 +525,13 @@ void enemyUpdate(void) {
     boss.timer++;
     switch (boss.state) {
     case 0: /* Ram (5s = 300f) */
-      /* Move towards player (slow enough to be evadable) */
+      /* Move towards player (Aggr. 4.0/3.0) */
       if (boss.y > player.y)
-        boss.y -= 3.0f;
+        boss.y -= 4.0f;
       if (boss.x < player.x)
-        boss.x += 2.0f;
+        boss.x += 3.0f;
       if (boss.x > player.x)
-        boss.x -= 2.0f;
+        boss.x -= 3.0f;
 
       if (boss.timer >= 300) {
         boss.state = 1; /* Retreat */
@@ -575,6 +584,25 @@ void enemyUpdate(void) {
         boss.timer = 0;
       }
       break;
+      break;
+    case 4: /* Dying / Exploding */
+      bossDeathTimer++;
+      if (bossDeathTimer % 10 == 0) {
+        /* Spawn standard explosion at random offset */
+        Explosion e;
+        e.x = boss.x + (rand() % 200);
+        e.y = boss.y + (rand() % 200);
+        e.frameIndex = 0;
+        e.active = true;
+        explosions.push_back(e);
+      }
+      if (bossDeathTimer > 180) { /* 3 Seconds */
+        boss.active = false;
+        boss.health = 0;
+        currentPhase = PHASE_WIN;
+        bossDeathTimer = 0;
+      }
+      return; /* Skip collisions/attacks */
     }
 
     /* Boss Collision (Ramming Logic) */
@@ -600,11 +628,14 @@ void enemyUpdate(void) {
     }
 
     /* Boss Death */
-    if (boss.health <= 0) {
+    /* Boss Death Trigger */
+    if (boss.health <= 0 && boss.state != 4) {
       player.score += 1000;
-      boss.active = false;
+      boss.state = 4; /* Enter dying state */
       boss.health = 0;
-      currentPhase = PHASE_WIN; /* Trigger Win */
+      bossDeathTimer = 0;
+      bossMissiles.clear(); /* Remove active missiles */
+      /* Don't set PHASE_WIN yet */
     }
 
     return;

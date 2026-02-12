@@ -13,7 +13,7 @@
 #define PLAYER_SPEED 5.0f
 #define PLAYER_MAX_HEALTH 100.0f
 #define PI 3.14159265f
-#define SHOOT_COOLDOWN 10 /* Frames between shots (~6/sec at 60FPS) */
+#define SHOOT_COOLDOWN 5 /* Frames between shots (~12/sec at 60FPS) */
 
 /*  Road Boundaries (Defined here for global access)             */
 #define ROAD_LEFT_LIMIT 440
@@ -198,7 +198,8 @@ void playerUpdate(void) {
 
     player.shootAngle = atan2(dy, dx);
     float deg = player.shootAngle * 180.0f / PI;
-    /* Angle is "visual angle", if user wants it raw. Keep it aligned with math. */
+    /* Angle is "visual angle", if user wants it raw. Keep it aligned with math.
+     */
     player.angle = deg;
     /* Adjust for sprite sheet orientation (Math CCW vs Sprite CW)
      * If 0=Right (Math) -> 90 (Frame 9, Right)

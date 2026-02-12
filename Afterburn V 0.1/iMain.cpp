@@ -32,7 +32,8 @@ void gameUpdate(void) {
     enemyUpdate();
 
     /* Check Game Over (Player Health <= 0) */
-    if (player.health <= 0)
+    /* Only trigger Game Over if not winning/boss dying */
+    if (player.health <= 0 && getPhase() != PHASE_WIN && !isBossDying())
       gameState = STATE_GAMEOVER;
   }
 }
@@ -124,14 +125,16 @@ void iPassiveMouseMove(int mx, int my) {
   }
 }
 
+static bool mouseLeftDown = false;
+
 /* ── Mouse click ────────────────────────────────────────── */
 void iMouse(int button, int state, int mx, int my) {
   if (button == GLUT_LEFT_BUTTON) {
     if (state == GLUT_DOWN) {
-      player.isFiring = true;
+      mouseLeftDown = true;
     }
     if (state == GLUT_UP) {
-      player.isFiring = false;
+      mouseLeftDown = false;
     }
   }
   if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN) {
@@ -172,6 +175,11 @@ void fixedUpdate() {
       gameReset(); /* Reset so returning to game later is clean */
       gameState = STATE_MENU;
     }
+  }
+
+  /* Fire Control: Mouse OR Space */
+  if (gameState == STATE_GAME) {
+    player.isFiring = mouseLeftDown || isKeyPressed(' ');
   }
 }
 

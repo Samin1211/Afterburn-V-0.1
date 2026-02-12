@@ -127,6 +127,8 @@ void uiDraw(void) {
     iSetColor(255, 255, 255);
     char scoreStr[32];
     sprintf_s(scoreStr, 32, "Score: %d", player.score);
+    /* Draw twice to fake bold/bigger */
+    iText(SCORE_X + 1, SCORE_Y + 1, scoreStr, GLUT_BITMAP_TIMES_ROMAN_24);
     iText(SCORE_X, SCORE_Y, scoreStr, GLUT_BITMAP_TIMES_ROMAN_24);
   }
 
