@@ -11,6 +11,7 @@
 
 /* ── Game states ──────────────────────────────────────── */
 enum GameState {
+  STATE_STARTSCREEN,
   STATE_MENU,
   STATE_GAME,
   STATE_GAMEOVER,
@@ -59,5 +60,6 @@ void drawPlaceholderGame(void);
 void drawPlaceholderLeaderboard(void);
 void drawPlaceholderOptions(void);
 void drawPlaceholderAbout(void);
+void drawStartScreen(void);
 
 #endif /* MENU_H */

@@ -83,6 +83,8 @@ void iFilledRectangle(double left, double bottom, double dx, double dy);
 /* ── Module-level data ─────────────────────────────────── */
 static unsigned int texBackground = 0;
 static unsigned int texTitle      = 0;
+static unsigned int texCreditPage = 0;
+static unsigned int texStartPage  = 0;
 
 static MenuButton buttons[MENU_BUTTON_COUNT];
 static GameState   currentState = STATE_MENU;
@@ -109,6 +111,8 @@ void menuInit(void)
     /* Load textures (paths relative to working directory) */
     texBackground = iLoadImage("Asset/Menu files/background.png");
     texTitle      = iLoadImage("Asset/Menu files/title.png");
+    texCreditPage = iLoadImage("Asset/credit page.png");
+    texStartPage  = iLoadImage("Asset/starting page.png");
 
     /* --- New Game (column 1, full height) --- */
     buttons[0].texture = iLoadImage("Asset/Menu files/new_game.png");
@@ -284,5 +288,12 @@ void drawPlaceholderOptions(void)
 
 void drawPlaceholderAbout(void)
 {
-    drawPlaceholderScreen("[ ABOUT ]", 20, 25, 40);
+    iClear();
+    iShowImage(0, 0, 1920, 1080, texCreditPage);
+}
+
+void drawStartScreen(void)
+{
+    iClear();
+    iShowImage(0, 0, 1920, 1080, texStartPage);
 }

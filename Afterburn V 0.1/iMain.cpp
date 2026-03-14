@@ -22,7 +22,7 @@
  * All rendering and input routing depends on this value.
  * HOW TO CHANGE: Set to any GameState enum value to switch screens.
  * EFFECT: Controls what the player sees and what logic runs. */
-GameState gameState = STATE_MENU;
+GameState gameState = STATE_STARTSCREEN;
 
 #include "Enemy.h"
 #include "Player.h"
@@ -154,6 +154,10 @@ void iDraw() {
   iClear();
 
   switch (gameState) {
+  case STATE_STARTSCREEN:
+    drawStartScreen(); /* Full-screen starting page image */
+    break;
+
   case STATE_MENU:
     menuDraw(); /* Main menu with buttons */
     break;
@@ -233,7 +237,9 @@ void iMouse(int button, int state, int mx, int my) {
   }
 
   if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-    if (gameState == STATE_MENU) {
+    if (gameState == STATE_STARTSCREEN) {
+      gameState = STATE_MENU;
+    } else if (gameState == STATE_MENU) {
       GameState next = menuMouseClick(mx, my);
       if (next == STATE_GAME) {
         gameReset(); /* Reset everything for a fresh game */
