@@ -142,6 +142,7 @@ static PlayerState player;
  * HOW TO CHANGE: Set to true earlier to skip to Stage 2 for testing.
  * EFFECT: Controls which enemies spawn, score thresholds, and road texture. */
 static bool bossFightOver = false;
+static bool boss2FightOver = false;
 
 /* projectiles: Dynamic list of all active player cannon bullets on screen. */
 static std::vector<Projectile> projectiles;
@@ -265,6 +266,7 @@ void playerReset(void) {
   player.lossControlTimer = 0;
   player.missileCount = 0;
   bossFightOver = false;
+  boss2FightOver = false;
   projectiles.clear();
 }
 

@@ -66,7 +66,7 @@ void gameUpdate(void) {
      * Skip during win screen, boss dying, or boss2 dying to prevent
      * false game-overs from last-moment damage. */
     if (player.health <= 0 && getPhase() != PHASE_WIN && !isBossDying() &&
-        !isBoss2Dying())
+        !isBoss2Dying() && !isBoss3Dying())
       gameState = STATE_GAMEOVER;
   }
 }

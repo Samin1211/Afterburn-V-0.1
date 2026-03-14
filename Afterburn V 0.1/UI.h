@@ -189,6 +189,8 @@ void uiDraw(void) {
     row = 1; /* 1 star at 500 points */
   if (player.score >= 2000)
     row = 2; /* 2 stars at 2000 points */
+  if (player.score >= 3500)
+    row = 3; /* 3 stars at 3500 points */
 
   iShowImageSub(STAR_X, STAR_Y, STAR_DRAW_W, STAR_DRAW_H, texStarSystem, row,
                 STAR_ROWS);
@@ -197,7 +199,8 @@ void uiDraw(void) {
   StagePhase phase = getPhase(); /* Get current game phase from Enemy.h */
 
   /* During warning phases (pre-boss), show "BEWARE!!!" in red */
-  if (phase == PHASE_WARNING || phase == PHASE_WARNING2) {
+  if (phase == PHASE_WARNING || phase == PHASE_WARNING2 ||
+      phase == PHASE_WARNING3) {
     iSetColor(255, 0, 0);
     iText(SCORE_X, SCORE_Y, "BEWARE!!!", GLUT_BITMAP_TIMES_ROMAN_24);
   } else {
@@ -248,6 +251,19 @@ void uiDraw(void) {
     sprintf_s(mis2Str, "Missile: %d/10", player.missileCount);
     iSetColor(255, 255, 255);
     iText(50, 50, mis2Str, GLUT_BITMAP_TIMES_ROMAN_24);
+  }
+
+  /* ── 5c. Boss3 Stage HUD ────────────────────────────── */
+  if (phase == PHASE_BOSS3) {
+    char boss3Str[32];
+    sprintf_s(boss3Str, "BOSS: %d%%", getBoss3Health() * 100 / 500);
+    iSetColor(255, 0, 0);
+    iText(960 - 50, 1000, boss3Str, GLUT_BITMAP_TIMES_ROMAN_24);
+
+    char mis3Str[32];
+    sprintf_s(mis3Str, "Missile: %d/15", player.missileCount);
+    iSetColor(255, 255, 255);
+    iText(50, 50, mis3Str, GLUT_BITMAP_TIMES_ROMAN_24);
   }
 
   /* ── Win Screen ─────────────────────────────────────── */

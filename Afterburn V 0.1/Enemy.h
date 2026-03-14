@@ -43,8 +43,37 @@ void roadChangeStage(char path[]);
 #define BOSS2_PROJ_SPEED 12.0f
 #define BOSS2_MISSILE_SPEED 18.0f
 
+/*  Special Enemy 3 Config (cannon car)                          */
+#define SE3_W 100
+#define SE3_H 100
+#define SE3_MAX_HP 30
+#define SE3_SPEED 3.0f
+#define SE3_FIRE_COOLDOWN 25   /* Frames between shots (~2.4/sec) */
+#define SE3_PROJ_SPEED 8.0f   /* Projectile speed px/frame       */
+#define SE3_PROJ_DMG 2        /* Damage to player per hit         */
+#define SE3_PLAYER_DMG 2      /* Damage from player projectile    */
+#define SE3_AVOID_DIST 160.0f /* Min distance from player center  */
+#define SE3_MAX_ON_SCREEN 2
+
+/*  Boss 3 Config (Helicopter)                                   */
+#define BOSS3_W 300
+#define BOSS3_H 300
+#define BOSS3_MAX_HP 500
+#define BOSS3_BOMB_DMG 25       /* Damage to player per bomb hit    */
+#define BOSS3_PROJ_DMG 3        /* Damage per projectile hit        */
+#define BOSS3_MISSILE_DMG 15    /* Damage per missile hit           */
+#define BOSS3_PLAYER_BULLET_DMG 5  /* Player bullet dmg to boss     */
+#define BOSS3_PLAYER_MISSILE_DMG 10 /* Player missile dmg to boss   */
+#define BOSS3_BOMB_W 60
+#define BOSS3_BOMB_H 60
+#define BOSS3_BOMB_DROP_INTERVAL 20 /* Frames between bomb drops    */
+#define BOSS3_PROJ_SPEED 10.0f  /* Boss3 projectile speed           */
+#define BOSS3_MISSILE_SPEED 14.0f /* Boss3 missile speed            */
+#define BOSS3_PROJ_INTERVAL 8   /* Frames between projectiles       */
+#define BOSS3_MISSILE_INTERVAL 30 /* Frames between missiles        */
+
 /* ── Enums ──────────────────────────────────────────────── */
-enum EnemyType { TYPE_NORMAL, TYPE_SPECIAL1, TYPE_SPECIAL2 };
+enum EnemyType { TYPE_NORMAL, TYPE_SPECIAL1, TYPE_SPECIAL2, TYPE_SPECIAL3 };
 enum EnemyState { S_CHASE, S_PRE_ATTACK, S_ATTACK, S_COOLDOWN };
 
 /* ── Structs ────────────────────────────────────────────── */
@@ -74,6 +103,12 @@ enum StagePhase {
   PHASE_WARNING2,
   PHASE_TRUCK2,
   PHASE_BOSS2,
+  PHASE_HEALTH_TRUCK2,
+  PHASE_CLOUD_IN2,
+  PHASE_CLOUD_OUT2,
+  PHASE_WARNING3,
+  PHASE_TRUCK3,
+  PHASE_BOSS3,
   PHASE_WIN
 };
 
@@ -113,6 +148,27 @@ struct Boss2 {
   /* Sequential Missiles */
   int missilesFired;
   int missileDelay;
+};
+
+/* Boss3: Helicopter boss (Boss 2.png).
+ * state: 0=Bomb drop (5s), 1=Projectile barrage (5s),
+ *        2=Missile barrage (5s), 3=Idle (2s), 4=Dying.
+ * HOW TO CHANGE: Modify maxHealth (500), phase durations, or damage. */
+struct Boss3 {
+  float x, y;
+  int health;
+  int maxHealth;
+  int state; /* 0:Bombs, 1:Projectiles, 2:Missiles, 3:Idle, 4:Dying */
+  int timer;
+  bool active;
+  int fireTimer; /* Sub-timer for firing intervals within states */
+  float targetX, targetY; /* Random movement target (bomb drop phase) */
+};
+
+/* Bomb: Dropped by Boss 3, falls downward. Explodes on player contact. */
+struct Bomb {
+  float x, y;
+  bool active;
 };
 
 /* SupplyTruck: Delivers power/health orbs during boss fights.
@@ -162,6 +218,19 @@ struct Puddle {
 };
 
 /* NPC struct is in NPC.h */
+
+/* SpecialEnemy3: Cannon-wielding enemy car with rotatable sprite sheet.
+ * Moves in random patterns, tracks player with turret, fires projectiles.
+ * Uses same 6x6 grid rotation system as the player car and Boss2 tank. */
+struct SpecialEnemy3 {
+  float x, y;
+  int health;
+  float turretAngle;  /* Angle toward player in degrees */
+  int turretFrame;    /* Sprite sheet frame index (0-35) */
+  int fireTimer;      /* Cooldown counter between shots */
+  float targetX, targetY; /* Random movement destination */
+  bool active;
+};
 
 /* ── Globals ────────────────────────────────────────────── */
 static StagePhase currentPhase = PHASE_NORMAL;
@@ -218,11 +287,28 @@ static std::vector<BossMissile> boss2Missiles;    /* Boss2 homing missiles */
 static int boss2DeathTimer = 0; /* Frames since Boss2 entered dying state */
 static int boss2TruckDelayTimer = 0; /* Delay before Boss2 resupply truck */
 
+/* Special Enemy 3 Globals */
+static std::vector<SpecialEnemy3> se3Enemies;      /* Max 2 on screen */
+static std::vector<BossMissile> se3Projectiles;    /* SE3 fired bullets */
+static unsigned int texSE3 = 0;                    /* SE3 sprite sheet */
+static int se3SpawnTimer = 0;                      /* Spawn delay counter */
+
+/* Boss 3 Globals */
+static Boss3 boss3;
+static std::vector<Bomb> boss3Bombs;               /* Active bombs */
+static std::vector<BossMissile> boss3Projectiles;  /* Boss3 auto-fire */
+static std::vector<BossMissile> boss3Missiles;     /* Boss3 homing missiles */
+static unsigned int texBoss3 = 0;                  /* Boss 3 sprite */
+static unsigned int texBomb = 0;                   /* Bomb image */
+static int boss3DeathTimer = 0;
+static int boss3TruckDelayTimer = 0;
+
 /* Helper to check if boss is in dying animation (for Game Over prevention).
  * During dying animation, the player should not get a Game Over even if HP<=0.
  */
 bool isBossDying() { return boss.active && boss.state == 4; }
 bool isBoss2Dying() { return boss2.active && boss2.state == 4; }
+bool isBoss3Dying() { return boss3.active && boss3.state == 4; }
 
 /* checkAABB is in NPC.h */
 
@@ -293,6 +379,13 @@ void enemyInit(void) {
 
   /* Boss2 Assets */
   texTank = iLoadImage("Asset/Tank.png");
+
+  /* Special Enemy 3 Assets */
+  texSE3 = iLoadImage("Asset/black-car-spritesheet.png");
+
+  /* Boss 3 Assets */
+  texBoss3 = iLoadImage("Asset/Boss 2.png");
+  texBomb = iLoadImage("Asset/Bomb.png");
 }
 
 /* ── Reset (state only — call on restart) ──────────────── */
@@ -360,6 +453,24 @@ void enemyReset(void) {
   boss2Missiles.clear();
   boss2DeathTimer = 0;
   boss2TruckDelayTimer = 0;
+
+  /* Reset Special Enemy 3 */
+  se3Enemies.clear();
+  se3Projectiles.clear();
+  se3SpawnTimer = 0;
+
+  /* Reset Boss3 */
+  boss3.active = false;
+  boss3.health = 0;
+  boss3.maxHealth = BOSS3_MAX_HP;
+  boss3.state = 0;
+  boss3.timer = 0;
+  boss3.fireTimer = 0;
+  boss3Bombs.clear();
+  boss3Projectiles.clear();
+  boss3Missiles.clear();
+  boss3DeathTimer = 0;
+  boss3TruckDelayTimer = 0;
 }
 
 /* ── Spawn Logic ────────────────────────────────────────── */
@@ -372,7 +483,8 @@ void enemySpawn(void) {
   /* 1. Normal Wave Logic */
   int maxEnemies = 3;
   if ((!bossFightOver && player.score >= 250) ||
-      (bossFightOver && player.score >= 1750))
+      (bossFightOver && !boss2FightOver && player.score >= 1750) ||
+      (boss2FightOver && player.score >= 3250))
     maxEnemies = 5;
 
   int activeCount = 0;
@@ -411,12 +523,13 @@ void enemySpawn(void) {
   /* 2. Special Enemy Spawn Logic */
   /* "After 500 points for every 100 points spawn 2 special enemy types" */
   if ((!bossFightOver && player.score >= 500) ||
-      (bossFightOver && player.score >= 2000)) {
+      (bossFightOver && !boss2FightOver && player.score >= 2000) ||
+      (boss2FightOver && player.score >= 3500)) {
     if (player.score - lastSpecialScore >= 100) {
       /* Trigger Spawn */
       lastSpecialScore += 100; /* Advance threshold */
 
-      /* Spawn 2 in stage 1, 1 in stage 2 */
+      /* Spawn 2 in stage 1, 1 in stage 2/3 */
       int spawnCount = bossFightOver ? 1 : 2;
       for (int k = 0; k < spawnCount; k++) {
         Enemy e;
@@ -446,7 +559,8 @@ void enemySpawn(void) {
   }
 
   /* 4. Special Enemy 2 Spawn Logic (Stage 2, score >= 2000) */
-  if (bossFightOver && player.score >= 2000) {
+  if (bossFightOver && ((player.score >= 2000 && !boss2FightOver) ||
+                        (boss2FightOver && player.score >= 3500))) {
     /* Count active Special Enemy 2s */
     int se2Count = 0;
     for (unsigned int i = 0; i < enemies.size(); i++)
@@ -489,6 +603,55 @@ void enemySpawn(void) {
       special2SpawnTimer = 0;
     }
   }
+
+  /* 5. Special Enemy 3 Spawn Logic (Stage 3, score >= 3500) */
+  if (boss2FightOver && player.score >= 3500) {
+    int se3Count = 0;
+    for (unsigned int i = 0; i < se3Enemies.size(); i++)
+      if (se3Enemies[i].active)
+        se3Count++;
+
+    if (se3Count < SE3_MAX_ON_SCREEN) {
+      se3SpawnTimer++;
+      if (se3SpawnTimer >= 90) { /* 1.5 second delay */
+        se3SpawnTimer = 0;
+
+        SpecialEnemy3 e;
+        int range = ROAD_RIGHT_LIMIT - SE3_W - ROAD_LEFT_LIMIT;
+        if (range < 1) range = 1;
+        /* Spawn at random X, at least 200px away from player */
+        e.x = ROAD_LEFT_LIMIT + (float)(rand() % range);
+        for (int att = 0; att < 10; att++) {
+          float dx = e.x - player.x;
+          if (dx < 0) dx = -dx;
+          if (dx >= 200) break;
+          e.x = ROAD_LEFT_LIMIT + (float)(rand() % range);
+        }
+        e.y = 1080.0f + 100.0f + (float)(rand() % 300); /* Start above screen, roll in naturally */
+        e.health = SE3_MAX_HP;
+        e.turretAngle = 0;
+        e.turretFrame = 0;
+        e.fireTimer = 0;
+        /* Initial random movement target */
+        e.targetX = ROAD_LEFT_LIMIT + (float)(rand() % range);
+        e.targetY = 100.0f + (float)(rand() % 800);
+        e.active = true;
+
+        /* Reuse inactive slot or push new */
+        bool placed = false;
+        for (unsigned int i = 0; i < se3Enemies.size(); i++) {
+          if (!se3Enemies[i].active) {
+            se3Enemies[i] = e;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) se3Enemies.push_back(e);
+      }
+    } else {
+      se3SpawnTimer = 0;
+    }
+  }
 }
 
 /* ── Update ─────────────────────────────────────────────── */
@@ -511,9 +674,16 @@ void enemyUpdate(void) {
     currentPhase = PHASE_WARNING;
   }
 
-  /* Stage 2 Boss trigger */
-  if (currentPhase == PHASE_NORMAL && bossFightOver && player.score >= 2500) {
+  /* Stage 2 Boss trigger (must not re-trigger in Stage 3) */
+  if (currentPhase == PHASE_NORMAL && bossFightOver && !boss2FightOver &&
+      player.score >= 2500) {
     currentPhase = PHASE_WARNING2;
+  }
+
+  /* Stage 3 Boss trigger */
+  if (currentPhase == PHASE_NORMAL && boss2FightOver &&
+      player.score >= 4000) {
+    currentPhase = PHASE_WARNING3;
   }
 
   if (currentPhase == PHASE_WARNING) {
@@ -1281,8 +1451,16 @@ void enemyUpdate(void) {
       if (boss2DeathTimer > 180) {
         boss2.active = false;
         boss2.health = 0;
-        currentPhase = PHASE_WIN;
+        currentPhase = PHASE_HEALTH_TRUCK2;
         boss2DeathTimer = 0;
+
+        /* Start health truck (same pattern as post-Boss1) */
+        healthTruck.active = true;
+        healthTruck.x = 960 - 128;
+        healthTruck.y = -300;
+        healthTruck.state = 0;
+        healthTruck.timer = 0;
+        healthTruck.animFrame = 0;
       }
       return;
     }
@@ -1314,6 +1492,483 @@ void enemyUpdate(void) {
       boss2DeathTimer = 0;
       boss2Projectiles.clear();
       boss2Missiles.clear();
+    }
+
+    return;
+  }
+
+  /* ── Post-Boss2 Health Truck Phase ──────────────────── */
+  if (currentPhase == PHASE_HEALTH_TRUCK2) {
+    /* Health Truck Update (same pattern as PHASE_HEALTH_TRUCK) */
+    if (healthTruck.active) {
+      healthTruck.timer++;
+      switch (healthTruck.state) {
+      case 0: /* Enter — position itself ahead of player */
+        healthTruck.y += 12.0f;
+        if (healthTruck.y >= player.y + 300) {
+          healthTruck.state = 1; /* Animate */
+          healthTruck.timer = 0;
+        }
+        break;
+      case 1: /* Animate Health Deployment (4x4 grid = 16 frames) */
+        if (healthTruck.timer % 5 == 0)
+          healthTruck.animFrame++;
+        if (healthTruck.animFrame >= 16) {
+          healthTruck.state = 2; /* Drop */
+          healthTruck.timer = 0;
+        }
+        break;
+      case 2: /* Drop Health Orb */
+        healthOrb.active = true;
+        healthOrb.x = healthTruck.x + 128 - 50;
+        healthOrb.y = healthTruck.y + 128;
+        healthTruck.state = 3; /* Leave */
+        break;
+      case 3: /* Leave */
+        healthTruck.y += 20.0f;
+        if (healthTruck.y > 1200) {
+          healthTruck.active = false;
+        }
+        break;
+      }
+    }
+
+    /* Health Orb Logic */
+    if (healthOrb.active) {
+      healthOrb.y -= ROAD_SCROLL_SPEED;
+      if (checkAABB(healthOrb.x, healthOrb.y, 100, 100, player.x, player.y,
+                    CAR_DRAW_W, CAR_DRAW_H)) {
+        /* Picked up — full health */
+        healthOrb.active = false;
+        player.health = PLAYER_MAX_HEALTH;
+      } else if (healthOrb.y < -150) {
+        /* Missed — no respawn */
+        healthOrb.active = false;
+      }
+    }
+
+    /* If truck gone and orb gone: start cloud transition to Stage 3 */
+    if (!healthTruck.active && !healthOrb.active) {
+      currentPhase = PHASE_CLOUD_IN2;
+      cloudLeftX = -1920.0f;
+      cloudRightX = 1920.0f;
+    }
+    return;
+  }
+
+  /* ── Cloud Transition Stage 2 → 3 ─────────────────── */
+  if (currentPhase == PHASE_CLOUD_IN2) {
+    cloudLeftX += CLOUD_SPEED;
+    cloudRightX -= CLOUD_SPEED;
+    if (cloudLeftX >= 0.0f) {
+      cloudLeftX = 0.0f;
+      cloudRightX = 0.0f;
+      /* Perform road swap while fully covered */
+      player.score = 3000;
+      lastSpecialScore = 3400;
+      enemies.clear();
+      puddles.clear();
+      npcs.clear();
+      roadChangeStage((char *)"Asset/Roads/road 6.png");
+      boss2FightOver = true;
+      currentPhase = PHASE_CLOUD_OUT2;
+    }
+    return;
+  }
+
+  if (currentPhase == PHASE_CLOUD_OUT2) {
+    cloudLeftX -= CLOUD_SPEED;
+    cloudRightX += CLOUD_SPEED;
+    if (cloudLeftX <= -1920.0f) {
+      cloudLeftX = -1920.0f;
+      cloudRightX = 1920.0f;
+      currentPhase = PHASE_NORMAL;
+    }
+    return;
+  }
+
+  /* ── Warning3 Phase (Stage 3 Boss) ───────────────── */
+  if (currentPhase == PHASE_WARNING3) {
+    bool allClear = true;
+    /* Clear normal enemies */
+    for (unsigned int i = 0; i < enemies.size(); i++) {
+      if (enemies[i].active) {
+        enemies[i].y += 15.0f;
+        enemies[i].x += (enemies[i].x < 960) ? -5.0f : 5.0f;
+        if (enemies[i].y > 1200)
+          enemies[i].active = false;
+        allClear = false;
+      }
+    }
+    /* Clear SE3 enemies */
+    for (unsigned int i = 0; i < se3Enemies.size(); i++) {
+      if (se3Enemies[i].active) {
+        se3Enemies[i].y += 15.0f;
+        if (se3Enemies[i].y > 1200)
+          se3Enemies[i].active = false;
+        allClear = false;
+      }
+    }
+    /* Clear puddles, NPCs, SE3 projectiles */
+    for (unsigned int i = 0; i < puddles.size(); i++)
+      puddles[i].active = false;
+    for (unsigned int i = 0; i < npcs.size(); i++)
+      npcs[i].active = false;
+    se3Projectiles.clear();
+
+    if (allClear) {
+      currentPhase = PHASE_TRUCK3;
+      truck.active = true;
+      truck.x = 960 - 128;
+      truck.y = -300;
+      truck.state = 0;
+      truck.timer = 0;
+      truck.animFrame = 0;
+    }
+    return;
+  }
+
+  /* ── Truck3 Phase (15 missiles) ─────────────────── */
+  if (currentPhase == PHASE_TRUCK3) {
+    truck.timer++;
+    switch (truck.state) {
+    case 0:
+      truck.y += 12.0f;
+      if (truck.y >= player.y + 300) {
+        truck.state = 1;
+        truck.timer = 0;
+      }
+      break;
+    case 1:
+      if (truck.timer % 5 == 0)
+        truck.animFrame++;
+      if (truck.animFrame >= 16) {
+        truck.state = 2;
+        truck.timer = 0;
+      }
+      break;
+    case 2:
+      orb.active = true;
+      orb.x = truck.x + 128 - 50;
+      orb.y = truck.y + 128;
+      truck.state = 3;
+      break;
+    case 3:
+      truck.y += 20.0f;
+      if (truck.y > 1200)
+        truck.active = false;
+      break;
+    }
+
+    if (orb.active) {
+      orb.y -= ROAD_SCROLL_SPEED;
+      if (checkAABB(orb.x, orb.y, 100, 100, player.x, player.y, CAR_DRAW_W,
+                    CAR_DRAW_H)) {
+        orb.active = false;
+        player.missileCount = 15;
+      } else if (orb.y < -150) {
+        orb.active = false;
+        truck.active = true;
+        truck.y = -300;
+        truck.state = 0;
+        truck.timer = 0;
+        truck.animFrame = 0;
+      }
+    }
+
+    if (!truck.active && !orb.active) {
+      currentPhase = PHASE_BOSS3;
+      boss3.active = true;
+      boss3.x = 960 - BOSS3_W / 2;
+      boss3.y = 1200; /* Enter from top */
+      boss3.health = BOSS3_MAX_HP;
+      boss3.maxHealth = BOSS3_MAX_HP;
+      boss3.state = 0; /* Bomb drop */
+      boss3.timer = 0;
+      boss3.fireTimer = 0;
+    }
+    return;
+  }
+
+  /* ── Boss 3 Fight (Helicopter) ──────────────────── */
+  if (currentPhase == PHASE_BOSS3) {
+    /* Resupply Truck during boss fight */
+    if (player.missileCount == 0 && !truck.active && !orb.active &&
+        boss3.active && boss3.state != 4) {
+      bool activeMissiles = false;
+      for (unsigned int m = 0; m < playerMissiles.size(); m++)
+        if (playerMissiles[m].active)
+          activeMissiles = true;
+      if (!activeMissiles) {
+        boss3TruckDelayTimer++;
+        if (boss3TruckDelayTimer > 300) {
+          truck.active = true;
+          truck.x = 960 - 128;
+          truck.y = -300;
+          truck.state = 0;
+          truck.timer = 0;
+          truck.animFrame = 0;
+          boss3TruckDelayTimer = 0;
+        }
+      }
+    } else {
+      boss3TruckDelayTimer = 0;
+    }
+
+    /* Truck update during boss fight */
+    if (truck.active) {
+      truck.timer++;
+      switch (truck.state) {
+      case 0:
+        truck.y += 12.0f;
+        if (truck.y >= 200) {
+          truck.state = 1;
+          truck.timer = 0;
+        }
+        break;
+      case 1:
+        if (truck.timer % 5 == 0)
+          truck.animFrame++;
+        if (truck.animFrame >= 16) {
+          truck.state = 2;
+          truck.timer = 0;
+        }
+        break;
+      case 2:
+        orb.active = true;
+        orb.x = truck.x + 128 - 50;
+        orb.y = truck.y + 128;
+        truck.state = 3;
+        break;
+      case 3:
+        truck.y += 20.0f;
+        if (truck.y > 1200)
+          truck.active = false;
+        break;
+      }
+    }
+
+    /* Orb during boss fight (15 missiles) */
+    if (orb.active) {
+      orb.y -= ROAD_SCROLL_SPEED;
+      if (checkAABB(orb.x, orb.y, 100, 100, player.x, player.y, CAR_DRAW_W,
+                    CAR_DRAW_H)) {
+        orb.active = false;
+        player.missileCount = 15;
+      } else if (orb.y < -150) {
+        orb.active = false;
+      }
+    }
+
+    /* Player Missiles vs Boss 3 */
+    for (unsigned int m = 0; m < playerMissiles.size(); m++) {
+      if (playerMissiles[m].active) {
+        playerMissiles[m].y += 20.0f;
+        if (playerMissiles[m].y > 1200)
+          playerMissiles[m].active = false;
+        if (boss3.active && boss3.state != 4 &&
+            checkAABB(playerMissiles[m].x, playerMissiles[m].y, 40, 40,
+                      boss3.x, boss3.y, BOSS3_W, BOSS3_H)) {
+          boss3.health -= BOSS3_PLAYER_MISSILE_DMG;
+          playerMissiles[m].active = false;
+          if (boss3.health < 0) boss3.health = 0;
+        }
+      }
+    }
+
+    /* Player Bullets vs Boss 3 */
+    for (unsigned int p = 0; p < projectiles.size(); p++) {
+      if (projectiles[p].active && boss3.active && boss3.state != 4 &&
+          checkAABB(projectiles[p].x, projectiles[p].y, 20, 20,
+                    boss3.x, boss3.y, BOSS3_W, BOSS3_H)) {
+        projectiles[p].active = false;
+        boss3.health -= BOSS3_PLAYER_BULLET_DMG;
+        if (boss3.health < 0) boss3.health = 0;
+      }
+    }
+
+    /* Boss 3 Entry (scroll down from top) */
+    if (boss3.y > 1080 - BOSS3_H - 50) {
+      boss3.y -= 5.0f;
+      return;
+    }
+
+    /* Boss 3 State Machine */
+    boss3.timer++;
+    switch (boss3.state) {
+    case 0: /* Bomb Drop (5 seconds = 300 frames) */
+      /* Smooth sinusoidal sweep across the road */
+      {
+        float center = (ROAD_LEFT_LIMIT + ROAD_RIGHT_LIMIT - BOSS3_W) / 2.0f;
+        float halfRange = (ROAD_RIGHT_LIMIT - BOSS3_W - ROAD_LEFT_LIMIT) / 2.0f;
+        boss3.x = center + halfRange * sin(boss3.timer * 0.03f);
+      }
+
+      boss3.fireTimer++;
+      if (boss3.fireTimer >= BOSS3_BOMB_DROP_INTERVAL) {
+        boss3.fireTimer = 0;
+        Bomb b;
+        b.x = boss3.x + BOSS3_W / 2.0f - BOSS3_BOMB_W / 2.0f;
+        b.y = boss3.y;
+        b.active = true;
+        boss3Bombs.push_back(b);
+      }
+      if (boss3.timer >= 300) {
+        boss3.state = 1;
+        boss3.timer = 0;
+        boss3.fireTimer = 0;
+        boss3.x = 960.0f - BOSS3_W / 2.0f;
+        boss3.y = 1080.0f - BOSS3_H - 50.0f;
+      }
+      break;
+
+    case 1: /* Projectile Barrage (5 seconds = 300 frames) */
+      boss3.fireTimer++;
+      if (boss3.fireTimer >= BOSS3_PROJ_INTERVAL) {
+        boss3.fireTimer = 0;
+        float bcx = boss3.x + BOSS3_W / 2.0f;
+        float bcy = boss3.y + BOSS3_H / 2.0f;
+        float pcx = player.x + CAR_DRAW_W / 2.0f;
+        float pcy = player.y + CAR_DRAW_H / 2.0f;
+        float dx = pcx - bcx;
+        float dy = pcy - bcy;
+        float len = sqrt(dx * dx + dy * dy);
+        if (len < 1) len = 1;
+        BossMissile bp;
+        bp.x = bcx - 10;
+        bp.y = bcy - 10;
+        bp.dx = (dx / len) * BOSS3_PROJ_SPEED;
+        bp.dy = (dy / len) * BOSS3_PROJ_SPEED;
+        bp.active = true;
+        boss3Projectiles.push_back(bp);
+      }
+      if (boss3.timer >= 300) {
+        boss3.state = 2; /* Missile barrage */
+        boss3.timer = 0;
+        boss3.fireTimer = 0;
+      }
+      break;
+
+    case 2: /* Missile Barrage (5 seconds = 300 frames) */
+      boss3.fireTimer++;
+      if (boss3.fireTimer >= BOSS3_MISSILE_INTERVAL) {
+        boss3.fireTimer = 0;
+        float bcx = boss3.x + BOSS3_W / 2.0f;
+        float bcy = boss3.y + BOSS3_H / 2.0f;
+        float pcx = player.x + CAR_DRAW_W / 2.0f;
+        float pcy = player.y + CAR_DRAW_H / 2.0f;
+        float dx = pcx - bcx;
+        float dy = pcy - bcy;
+        float len = sqrt(dx * dx + dy * dy);
+        if (len < 1) len = 1;
+        BossMissile bm;
+        bm.x = bcx - 20;
+        bm.y = bcy - 20;
+        bm.dx = (dx / len) * BOSS3_MISSILE_SPEED;
+        bm.dy = (dy / len) * BOSS3_MISSILE_SPEED;
+        bm.active = true;
+        boss3Missiles.push_back(bm);
+      }
+      if (boss3.timer >= 300) {
+        boss3.state = 3; /* Idle */
+        boss3.timer = 0;
+        boss3.fireTimer = 0;
+      }
+      break;
+
+    case 3: /* Idle (2 seconds = 120 frames) */
+      if (boss3.timer >= 120) {
+        boss3.state = 0; /* Loop back to bomb drop */
+        boss3.timer = 0;
+        boss3.fireTimer = 0;
+      }
+      break;
+
+    case 4: /* Dying (3 seconds explosion) */
+      boss3DeathTimer++;
+      if (boss3DeathTimer % 10 == 0) {
+        Explosion e;
+        e.x = boss3.x + (float)(rand() % (BOSS3_W - 50));
+        e.y = boss3.y + (float)(rand() % (BOSS3_H - 50));
+        e.frameIndex = 0;
+        e.active = true;
+        explosions.push_back(e);
+      }
+      if (boss3DeathTimer > 180) {
+        boss3.active = false;
+        boss3.health = 0;
+        currentPhase = PHASE_WIN;
+        boss3DeathTimer = 0;
+      }
+      return;
+    }
+
+    /* Boss 3 Death Trigger */
+    if (boss3.health <= 0 && boss3.state != 4) {
+      boss3.state = 4;
+      boss3.health = 0;
+      boss3DeathTimer = 0;
+      boss3Bombs.clear();
+      boss3Projectiles.clear();
+      boss3Missiles.clear();
+    }
+
+    /* Boss 3 Bomb Update */
+    for (unsigned int i = 0; i < boss3Bombs.size(); i++) {
+      if (boss3Bombs[i].active) {
+        boss3Bombs[i].y -= (ROAD_SCROLL_SPEED + 3.0f); /* Fall downward */
+        if (boss3Bombs[i].y < -BOSS3_BOMB_H)
+          boss3Bombs[i].active = false;
+        /* Bomb collision with player */
+        if (player.active &&
+            checkAABB(boss3Bombs[i].x, boss3Bombs[i].y, BOSS3_BOMB_W,
+                      BOSS3_BOMB_H, player.x, player.y, CAR_DRAW_W,
+                      CAR_DRAW_H)) {
+          player.health -= BOSS3_BOMB_DMG;
+          boss3Bombs[i].active = false;
+          /* Explosion animation */
+          Explosion ex;
+          ex.x = boss3Bombs[i].x + BOSS3_BOMB_W / 2 - EXPLOSION_SIZE / 2;
+          ex.y = boss3Bombs[i].y + BOSS3_BOMB_H / 2 - EXPLOSION_SIZE / 2;
+          ex.frameIndex = 0;
+          ex.active = true;
+          explosions.push_back(ex);
+        }
+      }
+    }
+
+    /* Boss 3 Projectile Update */
+    for (unsigned int i = 0; i < boss3Projectiles.size(); i++) {
+      if (boss3Projectiles[i].active) {
+        boss3Projectiles[i].x += boss3Projectiles[i].dx;
+        boss3Projectiles[i].y += boss3Projectiles[i].dy;
+        if (boss3Projectiles[i].x < -50 || boss3Projectiles[i].x > 1920 ||
+            boss3Projectiles[i].y < -50 || boss3Projectiles[i].y > 1080)
+          boss3Projectiles[i].active = false;
+        if (player.active &&
+            checkAABB(boss3Projectiles[i].x, boss3Projectiles[i].y, 20, 20,
+                      player.x, player.y, CAR_DRAW_W, CAR_DRAW_H)) {
+          player.health -= BOSS3_PROJ_DMG;
+          boss3Projectiles[i].active = false;
+        }
+      }
+    }
+
+    /* Boss 3 Missile Update */
+    for (unsigned int i = 0; i < boss3Missiles.size(); i++) {
+      if (boss3Missiles[i].active) {
+        boss3Missiles[i].x += boss3Missiles[i].dx;
+        boss3Missiles[i].y += boss3Missiles[i].dy;
+        if (boss3Missiles[i].x < -50 || boss3Missiles[i].x > 1920 ||
+            boss3Missiles[i].y < -50 || boss3Missiles[i].y > 1080)
+          boss3Missiles[i].active = false;
+        if (player.active &&
+            checkAABB(boss3Missiles[i].x, boss3Missiles[i].y, 40, 40,
+                      player.x, player.y, CAR_DRAW_W, CAR_DRAW_H)) {
+          player.health -= BOSS3_MISSILE_DMG;
+          boss3Missiles[i].active = false;
+        }
+      }
     }
 
     return;
@@ -1562,8 +2217,157 @@ void enemyUpdate(void) {
           player.score += killScore;
           if (!bossFightOver && player.score > 1000)
             player.score = 1000;
+          if (bossFightOver && !boss2FightOver && player.score > 2500)
+            player.score = 2500;
+          if (boss2FightOver && player.score > 4000)
+            player.score = 4000;
           break;
         }
+      }
+    }
+  }
+
+  /* ── Special Enemy 3 Update ──────────────────────────── */
+  for (unsigned int i = 0; i < se3Enemies.size(); i++) {
+    if (!se3Enemies[i].active) continue;
+
+    SpecialEnemy3 &se = se3Enemies[i];
+
+    /* -- Entry phase: roll in naturally from top before AI starts -- */
+    if (se.y > 1080 - SE3_H) {
+      se.y -= (ROAD_SCROLL_SPEED + 2.0f); /* Scroll down a bit faster than road */
+      /* Aim downward during entry */
+      se.turretFrame = getFrameFromAngle(180.0f);
+      continue; /* Skip AI, avoidance, and firing until on screen */
+    }
+
+    /* -- Movement: move toward random target -- */
+    float mdx = se.targetX - se.x;
+    float mdy = se.targetY - se.y;
+    float mDist = sqrt(mdx * mdx + mdy * mdy);
+    if (mDist < 50.0f) {
+      /* Pick new random target within road boundaries */
+      int rangeX = ROAD_RIGHT_LIMIT - SE3_W - ROAD_LEFT_LIMIT;
+      if (rangeX < 1) rangeX = 1;
+      se.targetX = ROAD_LEFT_LIMIT + (float)(rand() % rangeX);
+      se.targetY = 100.0f + (float)(rand() % 800);
+    } else {
+      se.x += (mdx / mDist) * SE3_SPEED;
+      se.y += (mdy / mDist) * SE3_SPEED;
+    }
+
+    /* -- Player avoidance: stay outside player's hitbox -- */
+    float pcx = player.x + CAR_DRAW_W / 2.0f;
+    float pcy = player.y + CAR_DRAW_H / 2.0f;
+    float scx = se.x + SE3_W / 2.0f;
+    float scy = se.y + SE3_H / 2.0f;
+    float pdx = scx - pcx;
+    float pdy = scy - pcy;
+    float pDist = sqrt(pdx * pdx + pdy * pdy);
+    if (pDist < SE3_AVOID_DIST && pDist > 0.01f) {
+      /* Push away from player */
+      se.x += (pdx / pDist) * (SE3_SPEED + 1.0f);
+      se.y += (pdy / pDist) * (SE3_SPEED + 1.0f);
+      /* Pick a new target away from player */
+      int rangeX = ROAD_RIGHT_LIMIT - SE3_W - ROAD_LEFT_LIMIT;
+      if (rangeX < 1) rangeX = 1;
+      se.targetX = ROAD_LEFT_LIMIT + (float)(rand() % rangeX);
+      se.targetY = 100.0f + (float)(rand() % 800);
+    }
+
+    /* -- Avoid NPCs -- */
+    for (unsigned int n = 0; n < npcs.size(); n++) {
+      if (npcs[n].active &&
+          checkAABB(se.x, se.y, SE3_W, SE3_H,
+                    npcs[n].x, npcs[n].y, NPC_WIDTH, NPC_HEIGHT)) {
+        if (se.x < npcs[n].x) se.x -= 15;
+        else se.x += 15;
+        se.y -= 20;
+      }
+    }
+
+    /* -- Avoid other enemies -- */
+    for (unsigned int e2 = 0; e2 < enemies.size(); e2++) {
+      if (enemies[e2].active &&
+          checkAABB(se.x, se.y, SE3_W, SE3_H,
+                    enemies[e2].x, enemies[e2].y, ENEMY_WIDTH, ENEMY_HEIGHT)) {
+        if (se.x < enemies[e2].x) se.x -= 15;
+        else se.x += 15;
+        se.y -= 20;
+      }
+    }
+
+    /* -- Boundary clamp -- */
+    if (se.x < ROAD_LEFT_LIMIT) se.x = (float)ROAD_LEFT_LIMIT;
+    if (se.x > ROAD_RIGHT_LIMIT - SE3_W) se.x = (float)(ROAD_RIGHT_LIMIT - SE3_W);
+    if (se.y < 0) se.y = 0;
+    if (se.y > 1080 - SE3_H) se.y = (float)(1080 - SE3_H);
+
+    /* -- Cannon tracking: aim at player -- */
+    scx = se.x + SE3_W / 2.0f; /* Recalc after movement */
+    scy = se.y + SE3_H / 2.0f;
+    float tdx = pcx - scx;
+    float tdy = pcy - scy;
+    float tAngleDeg = atan2(tdy, tdx) * 180.0f / PI;
+    se.turretAngle = tAngleDeg;
+    se.turretFrame = getFrameFromAngle(90.0f - tAngleDeg);
+
+    /* -- Firing logic -- */
+    se.fireTimer++;
+    if (se.fireTimer >= SE3_FIRE_COOLDOWN) {
+      se.fireTimer = 0;
+      float angleRad = tAngleDeg * PI / 180.0f;
+      float barrelLen = SE3_W / 2.0f;
+      BossMissile bp;
+      bp.x = scx + cos(angleRad) * barrelLen - 10;
+      bp.y = scy + sin(angleRad) * barrelLen - 10;
+      bp.active = true;
+      float pLen = sqrt(tdx * tdx + tdy * tdy);
+      if (pLen < 1) pLen = 1;
+      bp.dx = (tdx / pLen) * SE3_PROJ_SPEED;
+      bp.dy = (tdy / pLen) * SE3_PROJ_SPEED;
+      se3Projectiles.push_back(bp);
+    }
+
+    /* -- Player projectile collision with SE3 -- */
+    for (unsigned int p = 0; p < projectiles.size(); p++) {
+      if (projectiles[p].active &&
+          checkAABB(projectiles[p].x, projectiles[p].y, 20, 20,
+                    se.x, se.y, SE3_W, SE3_H)) {
+        projectiles[p].active = false;
+        se.health -= SE3_PLAYER_DMG;
+        if (se.health <= 0) {
+          Explosion ex;
+          ex.x = se.x + SE3_W / 2 - EXPLOSION_SIZE / 2;
+          ex.y = se.y + SE3_H / 2 - EXPLOSION_SIZE / 2;
+          ex.frameIndex = 0;
+          ex.active = true;
+          explosions.push_back(ex);
+          se.active = false;
+          player.score += 50; /* Kill reward */
+        }
+        break;
+      }
+    }
+  }
+
+  /* -- SE3 Projectile Update -- */
+  for (unsigned int i = 0; i < se3Projectiles.size(); i++) {
+    if (se3Projectiles[i].active) {
+      se3Projectiles[i].x += se3Projectiles[i].dx;
+      se3Projectiles[i].y += se3Projectiles[i].dy;
+
+      /* Off-screen removal */
+      if (se3Projectiles[i].x < -50 || se3Projectiles[i].x > 1920 ||
+          se3Projectiles[i].y < -50 || se3Projectiles[i].y > 1080)
+        se3Projectiles[i].active = false;
+
+      /* Hit player */
+      if (player.active &&
+          checkAABB(se3Projectiles[i].x, se3Projectiles[i].y, 20, 20,
+                    player.x, player.y, CAR_DRAW_W, CAR_DRAW_H)) {
+        player.health -= SE3_PROJ_DMG;
+        se3Projectiles[i].active = false;
       }
     }
   }
@@ -1693,6 +2497,62 @@ void enemyDraw(void) {
     }
   }
 
+  /* Boss 3 (Helicopter) */
+  if (boss3.active) {
+    iShowImage((int)boss3.x, (int)boss3.y, BOSS3_W, BOSS3_H, texBoss3);
+  }
+
+  /* Boss 3 Bombs */
+  for (unsigned int i = 0; i < boss3Bombs.size(); i++) {
+    if (boss3Bombs[i].active) {
+      iShowImage((int)boss3Bombs[i].x, (int)boss3Bombs[i].y,
+                 BOSS3_BOMB_W, BOSS3_BOMB_H, texBomb);
+    }
+  }
+
+  /* Boss 3 Projectiles */
+  for (unsigned int i = 0; i < boss3Projectiles.size(); i++) {
+    if (boss3Projectiles[i].active) {
+      iShowImage((int)boss3Projectiles[i].x, (int)boss3Projectiles[i].y,
+                 20, 20, texProjectile);
+    }
+  }
+
+  /* Boss 3 Missiles */
+  for (unsigned int i = 0; i < boss3Missiles.size(); i++) {
+    if (boss3Missiles[i].active) {
+      iShowImage((int)boss3Missiles[i].x, (int)boss3Missiles[i].y,
+                 40, 40, texTorpedo);
+    }
+  }
+
+  /* Player Missiles (during Boss 3 too) */
+  if (currentPhase == PHASE_BOSS3) {
+    for (unsigned int m = 0; m < playerMissiles.size(); m++) {
+      if (playerMissiles[m].active) {
+        iShowImage((int)playerMissiles[m].x, (int)playerMissiles[m].y, 40, 40,
+                   texTorpedo);
+      }
+    }
+  }
+
+  /* Special Enemy 3 (drawn before explosions so explosions appear on top) */
+  for (unsigned int i = 0; i < se3Enemies.size(); i++) {
+    if (se3Enemies[i].active) {
+      iShowImageGrid((int)se3Enemies[i].x, (int)se3Enemies[i].y,
+                     SE3_W, SE3_H, texSE3,
+                     se3Enemies[i].turretFrame, CAR_SHEET_ROWS, CAR_SHEET_COLS);
+    }
+  }
+
+  /* SE3 Projectiles */
+  for (unsigned int i = 0; i < se3Projectiles.size(); i++) {
+    if (se3Projectiles[i].active) {
+      iShowImage((int)se3Projectiles[i].x, (int)se3Projectiles[i].y,
+                 20, 20, texProjectile);
+    }
+  }
+
   /* Explosions */
   for (unsigned int i = 0; i < explosions.size(); i++) {
     if (explosions[i].active) {
@@ -1710,7 +2570,8 @@ void enemyDraw(void) {
  * the new Stage 2 road. Drawn ON TOP of everything (topmost layer).
  * This is the LEVEL TRANSITION MECHANISM using clouds. */
 void cloudOverlayDraw(void) {
-  if (currentPhase == PHASE_CLOUD_IN || currentPhase == PHASE_CLOUD_OUT) {
+  if (currentPhase == PHASE_CLOUD_IN || currentPhase == PHASE_CLOUD_OUT ||
+      currentPhase == PHASE_CLOUD_IN2 || currentPhase == PHASE_CLOUD_OUT2) {
     iShowImage((int)cloudLeftX, 0, 1920, 1080, texCloudLeft);
     iShowImage((int)cloudRightX, 0, 1920, 1080, texCloudRight);
   }
@@ -1723,6 +2584,7 @@ StagePhase getPhase() { return currentPhase; }
 
 int getBossHealth() { return boss.health; }
 int getBoss2Health() { return boss2.health; }
+int getBoss3Health() { return boss3.health; }
 
 void firePlayerMissile() {
   if (player.missileCount > 0) {

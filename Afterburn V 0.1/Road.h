@@ -93,8 +93,10 @@ void roadUpdate(void) {
   /* Loop: when one full screen has scrolled, wrap and award score */
   if (roadY <= -SCREEN_H) {
     roadY = 0;
-    /* Score frozen at 1000 during boss fight; resumes after boss dies */
-    if (player.score < 1000 || bossFightOver) {
+    /* Score frozen at 1000 during boss1 fight, and at 2500 during boss2 fight.
+     * Resumes after each boss dies and cloud transition completes. */
+    if (player.score < 1000 || (bossFightOver && player.score < 2500) ||
+        (boss2FightOver && player.score < 4000)) {
       player.score += 10; /* +10 score per completed road loop */
     }
   }
