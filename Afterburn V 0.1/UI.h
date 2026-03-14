@@ -26,6 +26,8 @@ static unsigned int texHealthBar = 0;
 static unsigned int texStarSystem = 0;
 /* texWinBg: OpenGL texture for the win screen background (same as menu bg). */
 static unsigned int texWinBg = 0;
+/* texGameOver: OpenGL texture for the game over screen image. */
+static unsigned int texGameOver = 0;
 
 /* ── HUD layout constants (pixels, 1920x1080 canvas) ───── */
 
@@ -134,6 +136,7 @@ void uiInit(void) {
   texStarSystem =
       iLoadImage("Asset/Star System.png"); /* Star achievement sheet */
   texWinBg = iLoadImage("Asset/Menu files/background.png"); /* Win screen bg */
+  texGameOver = iLoadImage("Asset/game over.png"); /* Game over screen */
 }
 
 /* ── uiDraw ─────────────────────────────────────────────── */
@@ -282,11 +285,7 @@ void uiDraw(void) {
   /* ── 6. Game Over Overlay ────────────────────────────── */
   /* Displayed when player health reaches 0 */
   if (gameState == STATE_GAMEOVER) {
-    iSetColor(255, 0, 0);
-    iText(960 - 50, 540 + 20, "YOU LOSE", GLUT_BITMAP_TIMES_ROMAN_24);
-    iSetColor(255, 255, 255);
-    iText(960 - 80, 540 - 20, "Press 'R' to Restart", GLUT_BITMAP_HELVETICA_18);
-    iText(960 - 80, 540 - 50, "Press 'ESC' to Menu", GLUT_BITMAP_HELVETICA_18);
+    iShowImage(0, 0, 1920, 1080, texGameOver);
   }
 }
 
