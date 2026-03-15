@@ -262,6 +262,7 @@ static unsigned int texSpecialEnemy1 = 0;
 static unsigned int texSpecialEnemy2 = 0;
 static unsigned int texSpecialEffect = 0;
 static unsigned int texOilPuddle = 0;
+static unsigned int texEnemyProjectile = 0;
 static unsigned int texBoss = 0;
 static unsigned int texTruck = 0;
 static unsigned int texPowerAnim = 0;
@@ -374,6 +375,7 @@ void enemyInit(void) {
   texSpecialEnemy1 = iLoadImage("Asset/Special Enemy 1.png");
   texSpecialEffect = iLoadImage("Asset/Special Effect.png");
   texOilPuddle = iLoadImage("Asset/Oil Puddle.png");
+  texEnemyProjectile = iLoadImage("Asset/projectile 1.png");
 
   /* Boss Stage Assets */
   texBoss = iLoadImage("Asset/Boss 1.png");
@@ -2490,7 +2492,7 @@ void enemyDraw(void) {
     for (unsigned int i = 0; i < boss2Projectiles.size(); i++) {
       if (boss2Projectiles[i].active) {
         iShowImage((int)boss2Projectiles[i].x, (int)boss2Projectiles[i].y, 20,
-                   20, texProjectile);
+                   20, texEnemyProjectile);
       }
     }
     for (unsigned int i = 0; i < boss2Missiles.size(); i++) {
@@ -2525,7 +2527,7 @@ void enemyDraw(void) {
   for (unsigned int i = 0; i < boss3Projectiles.size(); i++) {
     if (boss3Projectiles[i].active) {
       iShowImage((int)boss3Projectiles[i].x, (int)boss3Projectiles[i].y,
-                 20, 20, texProjectile);
+                 20, 20, texEnemyProjectile);
     }
   }
 
@@ -2560,7 +2562,7 @@ void enemyDraw(void) {
   for (unsigned int i = 0; i < se3Projectiles.size(); i++) {
     if (se3Projectiles[i].active) {
       iShowImage((int)se3Projectiles[i].x, (int)se3Projectiles[i].y,
-                 20, 20, texProjectile);
+                 20, 20, texEnemyProjectile);
     }
   }
 
