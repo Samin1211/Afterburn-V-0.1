@@ -30,6 +30,12 @@ GameState gameState = STATE_STARTSCREEN;
 #include "UI.h"
 #include "options.h"
 
+/* ── Pause Menu Variables ───────────────────────────────── */
+bool isPaused = false;
+bool resumeHovered = false;
+bool returnMenuHovered = false;
+int texPauseBg, texResume, texReturnMenu;
+
 /* ══════════════════════════════════════════════════════════
  *  GAME LOOP & LOGIC
  * ══════════════════════════════════════════════════════════ */
@@ -53,6 +59,8 @@ GameState gameState = STATE_STARTSCREEN;
 void gameUpdate(void) {
   /* Only update game logic if in Playing State */
   if (gameState == STATE_GAME) {
+    if (isPaused) return; /* Freeze everything */
+
     /* Update Player (Movement, Rotation, Projectiles) */
     playerUpdate();
 
@@ -91,10 +99,16 @@ void gameInit(void) {
   npcInit();     /* Load NPC car + explosion textures */
   enemyInit();   /* Load enemy, boss, truck, orb, cloud textures */
 
+  /* Load Pause Menu Textures */
+  texPauseBg = iLoadImage("Asset\\Pause Menu files\\pause menu bg.png");
+  texResume = iLoadImage("Asset\\Pause Menu files\\resume.png");
+  texReturnMenu = iLoadImage("Asset\\Pause Menu files\\return to menu.png");
+
   /* Also reset state on first init */
   roadReset();
   playerReset();
   enemyReset();
+  isPaused = false;
 }
 
 /* gameReset: Lightweight state-only reset for restarting the game.
@@ -111,6 +125,7 @@ void gameReset(void) {
   roadReset();
   playerReset();
   enemyReset();
+  isPaused = false;
 }
 
 /* gameDraw: Renders the complete game scene in correct layer order.
@@ -140,6 +155,31 @@ void gameDraw(void) {
   /* 4. Cloud transition overlay (on top of EVERYTHING during stage transitions)
    */
   cloudOverlayDraw();
+
+  /* 5. Pause Menu Overlay (Topmost over gameplay) */
+  if (isPaused) {
+    iShowImage(0, 0, 1920, 1080, texPauseBg);
+
+    /* Resume Button Hover Scaling */
+    int rW = 216, rH = 121, rX = 835, rY = 449;
+    if (resumeHovered) {
+      int gW = rW * 1.1;
+      int gH = rH * 1.1;
+      iShowImage(rX - (gW - rW) / 2, rY - (gH - rH) / 2, gW, gH, texResume);
+    } else {
+      iShowImage(rX, rY, rW, rH, texResume);
+    }
+
+    /* Return to Menu Button Hover Scaling */
+    int mmW = 395, mmH = 121, mmX = 760, mmY = 299;
+    if (returnMenuHovered) {
+      int gW = mmW * 1.1;
+      int gH = mmH * 1.1;
+      iShowImage(mmX - (gW - mmW) / 2, mmY - (gH - mmH) / 2, gW, gH, texReturnMenu);
+    } else {
+      iShowImage(mmX, mmY, mmW, mmH, texReturnMenu);
+    }
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -201,6 +241,10 @@ void iPassiveMouseMove(int mx, int my) {
     menuMouseMove(mx, my);
   } else if (gameState == STATE_OPTIONS) {
     optionsMouseMove(mx, my);
+  } else if (gameState == STATE_GAME && isPaused) {
+    /* Pause Menu Hover Detection */
+    resumeHovered = (mx >= 835 && mx <= 835 + 216 && my >= 449 && my <= 449 + 121);
+    returnMenuHovered = (mx >= 760 && mx <= 760 + 395 && my >= 299 && my <= 299 + 121);
   }
 }
 
@@ -232,7 +276,7 @@ void iMouse(int button, int state, int mx, int my) {
     }
   }
   /* Right-click: Fire heavy missile during boss fights */
-  if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN) {
+  if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN && !isPaused) {
     firePlayerMissile(); /* Uses missileCount from power orb pickup */
   }
 
@@ -246,7 +290,17 @@ void iMouse(int button, int state, int mx, int my) {
       }
       gameState = next;
     } else if (gameState == STATE_GAME) {
-      playerShoot(); /* Fire a cannon bullet toward mouse cursor */
+      if (isPaused) {
+        if (resumeHovered) {
+          isPaused = false;
+        } else if (returnMenuHovered) {
+          gameReset();
+          gameState = STATE_MENU;
+          isPaused = false;
+        }
+      } else {
+        playerShoot(); /* Fire a cannon bullet toward mouse cursor */
+      }
     } else if (gameState == STATE_OPTIONS) {
       optionsMouseClick(mx, my);
     }
@@ -274,17 +328,25 @@ void fixedUpdate() {
     }
   }
 
-  /* ESC returns to the main menu from any state */
-  if (isKeyPressed(27)) /* 27 = ASCII Escape */
-  {
-    if (gameState != STATE_MENU) {
-      gameReset(); /* Reset so returning to game later is clean */
-      gameState = STATE_MENU;
+  /* Persistent ESC cooldown update */
+  static int globalEscCooldown = 0;
+  if (isKeyPressed(27)) {
+    if (gameState == STATE_GAME) {
+       if (globalEscCooldown == 0) {
+           isPaused = !isPaused;
+           globalEscCooldown = 20; /* 20 frames = 1/3 second */
+       }
+    } else if (gameState != STATE_MENU) {
+       gameReset();
+       gameState = STATE_MENU;
     }
+  }
+  if (globalEscCooldown > 0) {
+      globalEscCooldown--;
   }
 
   /* Continuous Fire Control: left mouse held OR space bar held */
-  if (gameState == STATE_GAME) {
+  if (gameState == STATE_GAME && !isPaused) {
     player.isFiring = mouseLeftDown || isKeyPressed(' ');
   }
 }
