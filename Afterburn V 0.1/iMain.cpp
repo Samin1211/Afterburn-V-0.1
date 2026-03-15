@@ -36,6 +36,9 @@ bool resumeHovered = false;
 bool returnMenuHovered = false;
 int texPauseBg, texResume, texReturnMenu;
 
+/* Flag to prevent double-recording score in a single game session */
+static bool scoreRecorded = false;
+
 /* ══════════════════════════════════════════════════════════
  *  GAME LOOP & LOGIC
  * ══════════════════════════════════════════════════════════ */
@@ -74,8 +77,19 @@ void gameUpdate(void) {
      * Skip during win screen, boss dying, or boss2 dying to prevent
      * false game-overs from last-moment damage. */
     if (player.health <= 0 && getPhase() != PHASE_WIN && !isBossDying() &&
-        !isBoss2Dying() && !isBoss3Dying())
+        !isBoss2Dying() && !isBoss3Dying()) {
+      if (!scoreRecorded) {
+        leaderboardAddScore(player.score);
+        scoreRecorded = true;
+      }
       gameState = STATE_GAMEOVER;
+    }
+
+    /* Record score when player wins (PHASE_WIN reached) */
+    if (getPhase() == PHASE_WIN && !scoreRecorded) {
+      leaderboardAddScore(player.score);
+      scoreRecorded = true;
+    }
   }
 }
 
@@ -109,6 +123,7 @@ void gameInit(void) {
   playerReset();
   enemyReset();
   isPaused = false;
+  scoreRecorded = false;
 }
 
 /* gameReset: Lightweight state-only reset for restarting the game.
@@ -126,6 +141,7 @@ void gameReset(void) {
   playerReset();
   enemyReset();
   isPaused = false;
+  scoreRecorded = false;
 }
 
 /* gameDraw: Renders the complete game scene in correct layer order.
@@ -208,7 +224,7 @@ void iDraw() {
     break;
 
   case STATE_LEADERBOARD:
-    drawPlaceholderLeaderboard(); /* Placeholder screen */
+    drawLeaderboard();
     break;
 
   case STATE_OPTIONS:
@@ -325,6 +341,8 @@ void fixedUpdate() {
         (gameState == STATE_GAME && getPhase() == PHASE_WIN)) {
       gameReset();
       gameState = STATE_GAME;
+    } else if (gameState == STATE_LEADERBOARD) {
+      leaderboardReset();
     }
   }
 
@@ -394,6 +412,7 @@ int main() {
 
   /* Initialize Systems */
   menuInit(); /* Load menu textures and button layout */
+  leaderboardInit(); /* Load leaderboard texture and scores */
   gameInit(); /* Load all game textures and reset initial state */
 
   iStart(); /* Enter the iGraphics main loop (blocks forever) */

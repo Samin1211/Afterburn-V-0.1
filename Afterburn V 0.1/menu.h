@@ -57,9 +57,14 @@ GameState menuMouseClick(int mx, int my);
 /*  Placeholder draw functions for sub‑screens.
  *  Each renders a simple screen with "Press ESC" text.     */
 void drawPlaceholderGame(void);
-void drawPlaceholderLeaderboard(void);
 void drawPlaceholderOptions(void);
 void drawPlaceholderAbout(void);
 void drawStartScreen(void);
+
+/*  Leaderboard API  */
+void leaderboardInit(void);
+void leaderboardAddScore(int score);
+void leaderboardReset(void);
+void drawLeaderboard(void);
 
 #endif /* MENU_H */

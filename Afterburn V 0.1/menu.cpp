@@ -32,6 +32,10 @@ void iFilledRectangle(double left, double bottom, double dx, double dy);
 /* ── Standard headers ──────────────────────────────────── */
 #include <stdlib.h>   /* exit() */
 #include <time.h>     /* clock(), CLOCKS_PER_SEC */
+#include <stdio.h>    /* fopen, fread, fwrite */
+
+/* GLUT/OpenGL headers for scalable stroke text rendering */
+#include "glut.h"
 
 /* ── Our own header ────────────────────────────────────── */
 #include "menu.h"
@@ -89,6 +93,12 @@ static unsigned int texStartPage  = 0;
 static MenuButton buttons[MENU_BUTTON_COUNT];
 static GameState   currentState = STATE_MENU;
 static clock_t     lastFrameTime = 0;
+
+/* ── Leaderboard data ──────────────────────────────────── */
+#define LB_MAX_SCORES 100
+static unsigned int texLeaderboardBg = 0;
+static int lbScores[LB_MAX_SCORES];
+static int lbCount = 0;
 
 /* ── Helper: point-in-rect test (native size) ─────────── */
 static int pointInButton(const MenuButton *b, int mx, int my)
@@ -276,9 +286,130 @@ void drawPlaceholderGame(void)
     drawPlaceholderScreen("[ GAME ]", 20, 30, 50);
 }
 
-void drawPlaceholderLeaderboard(void)
+/* ── Leaderboard: file I/O ──────────────────────────────── */
+
+static void leaderboardSave(void)
 {
-    drawPlaceholderScreen("[ LEADERBOARD ]", 50, 40, 10);
+    FILE *fp = NULL;
+    fopen_s(&fp, "leaderboard_scores.dat", "wb");
+    if (!fp) return;
+    fwrite(&lbCount, sizeof(int), 1, fp);
+    fwrite(lbScores, sizeof(int), lbCount, fp);
+    fclose(fp);
+}
+
+void leaderboardInit(void)
+{
+    texLeaderboardBg = iLoadImage("Asset/leaderboard.png");
+    lbCount = 0;
+
+    FILE *fp = NULL;
+    fopen_s(&fp, "leaderboard_scores.dat", "rb");
+    if (fp) {
+        fread(&lbCount, sizeof(int), 1, fp);
+        if (lbCount < 0) lbCount = 0;
+        if (lbCount > LB_MAX_SCORES) lbCount = LB_MAX_SCORES;
+        fread(lbScores, sizeof(int), lbCount, fp);
+        fclose(fp);
+    }
+}
+
+void leaderboardAddScore(int score)
+{
+    if (lbCount < LB_MAX_SCORES) {
+        lbScores[lbCount] = score;
+        lbCount++;
+    }
+    /* Insertion sort descending */
+    int i, j, tmp;
+    for (i = 1; i < lbCount; i++) {
+        tmp = lbScores[i];
+        j = i - 1;
+        while (j >= 0 && lbScores[j] < tmp) {
+            lbScores[j + 1] = lbScores[j];
+            j--;
+        }
+        lbScores[j + 1] = tmp;
+    }
+    leaderboardSave();
+}
+
+void leaderboardReset(void)
+{
+    lbCount = 0;
+    leaderboardSave();
+}
+
+/* ── Leaderboard: stroke text helper ──────────────────── */
+
+static void drawStrokeText(float x, float y, float scale, const char *text)
+{
+    glPushMatrix();
+    glTranslatef(x, y, 0.0f);
+    glScalef(scale, scale, 1.0f);
+    while (*text) {
+        glutStrokeCharacter(GLUT_STROKE_ROMAN, *text);
+        text++;
+    }
+    glPopMatrix();
+}
+
+/* Measure width of stroke text for centering */
+static float strokeTextWidth(float scale, const char *text)
+{
+    float w = 0;
+    while (*text) {
+        w += 104.76f; /* approximate advance width of GLUT_STROKE_ROMAN chars */
+        text++;
+    }
+    return w * scale;
+}
+
+/* ── Leaderboard: draw ─────────────────────────────────── */
+
+void drawLeaderboard(void)
+{
+    iClear();
+    iShowImage(0, 0, 1920, 1080, texLeaderboardBg);
+
+    int count = lbCount;
+    if (count > 5) count = 5;
+
+    /* Layout: scores centered vertically in the middle area */
+    float textScale = 0.35f;          /* Scale for GLUT_STROKE_ROMAN */
+    float lineHeight = 60.0f;         /* Vertical gap between entries */
+    float totalHeight = count * lineHeight;
+    /* Lowered startY from -30.0f to -70.0f to visually center under title */
+    float startY = (1080.0f / 2.0f) + (totalHeight / 2.0f) - 70.0f;
+
+    iSetColor(255, 255, 255);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glLineWidth(2.0f);
+
+    /* Center X value to align around */
+    float centerX = 1920.0f / 2.0f;
+
+    int i;
+    for (i = 0; i < count; i++) {
+        char rankStr[16];
+        char scoreStr[32];
+        sprintf_s(rankStr, 16, "%d.", i + 1);
+        sprintf_s(scoreStr, 32, "%d", lbScores[i]);
+
+        /* Measure rank string width so we can right-align it */
+        float rankW = strokeTextWidth(textScale, rankStr);
+
+        /* Two columns: rank is right-aligned 20px left of center,
+           score is left-aligned 20px right of center. */
+        float rankX = centerX - 20.0f - rankW;
+        float scoreX = centerX + 20.0f;
+        float y = startY - i * lineHeight;
+
+        drawStrokeText(rankX, y, textScale, rankStr);
+        drawStrokeText(scoreX, y, textScale, scoreStr);
+    }
+
+    glLineWidth(1.0f);
 }
 
 void drawPlaceholderOptions(void)
