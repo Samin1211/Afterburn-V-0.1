@@ -149,6 +149,8 @@ static PlayerState player;
  * EFFECT: Controls which enemies spawn, score thresholds, and road texture. */
 static bool bossFightOver = false;
 static bool boss2FightOver = false;
+static bool boss3FightOver = false;
+static int loopCount = 0; /* How many full 3-stage loops completed */
 
 /* projectiles: Dynamic list of all active player cannon bullets on screen. */
 static std::vector<Projectile> projectiles;
@@ -273,6 +275,8 @@ void playerReset(void) {
   player.missileCount = 0;
   bossFightOver = false;
   boss2FightOver = false;
+  boss3FightOver = false;
+  loopCount = 0;
   projectiles.clear();
 }
 

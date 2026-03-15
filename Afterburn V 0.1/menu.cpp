@@ -21,13 +21,7 @@ void iSetColor(double r, double g, double b);
 void iText(double x, double y, char *str, void *font);
 void iFilledRectangle(double left, double bottom, double dx, double dy);
 
-/* GLUT bitmap fonts (resolved at link time) */
-#ifndef GLUT_BITMAP_HELVETICA_18
-#define GLUT_BITMAP_HELVETICA_18   ((void *)8)
-#endif
-#ifndef GLUT_BITMAP_TIMES_ROMAN_24
-#define GLUT_BITMAP_TIMES_ROMAN_24 ((void *)7)
-#endif
+/* GLUT bitmap fonts (resolved at link time via glut.h) */
 
 /* ── Standard headers ──────────────────────────────────── */
 #include <stdlib.h>   /* exit() */
@@ -319,6 +313,10 @@ void leaderboardAddScore(int score)
     if (lbCount < LB_MAX_SCORES) {
         lbScores[lbCount] = score;
         lbCount++;
+    } else if (score > lbScores[LB_MAX_SCORES - 1]) {
+        lbScores[LB_MAX_SCORES - 1] = score;
+    } else {
+        return; /* Score doesn't qualify for leaderboard */
     }
     /* Insertion sort descending */
     int i, j, tmp;
@@ -338,6 +336,12 @@ void leaderboardReset(void)
 {
     lbCount = 0;
     leaderboardSave();
+}
+
+bool leaderboardQualifies(int score)
+{
+    if (lbCount < 5) return true;           /* Less than 5 entries — always qualifies */
+    return score > lbScores[4];             /* Must beat the 5th place score */
 }
 
 /* ── Leaderboard: stroke text helper ──────────────────── */

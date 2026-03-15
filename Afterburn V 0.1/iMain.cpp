@@ -38,6 +38,8 @@ int texPauseBg, texResume, texReturnMenu;
 
 /* Flag to prevent double-recording score in a single game session */
 static bool scoreRecorded = false;
+static unsigned int texCongrats = 0;
+static bool isLeaderboardQualifier = false;
 
 /* ══════════════════════════════════════════════════════════
  *  GAME LOOP & LOGIC
@@ -77,18 +79,15 @@ void gameUpdate(void) {
      * Skip during win screen, boss dying, or boss2 dying to prevent
      * false game-overs from last-moment damage. */
     if (player.health <= 0 && getPhase() != PHASE_WIN && !isBossDying() &&
-        !isBoss2Dying() && !isBoss3Dying()) {
+        !isBoss2Dying() && !isBoss3Dying() &&
+        getPhase() != PHASE_HEALTH_TRUCK3 && getPhase() != PHASE_CLOUD_IN3 &&
+        getPhase() != PHASE_CLOUD_OUT3) {
       if (!scoreRecorded) {
+        isLeaderboardQualifier = leaderboardQualifies(player.score);
         leaderboardAddScore(player.score);
         scoreRecorded = true;
       }
       gameState = STATE_GAMEOVER;
-    }
-
-    /* Record score when player wins (PHASE_WIN reached) */
-    if (getPhase() == PHASE_WIN && !scoreRecorded) {
-      leaderboardAddScore(player.score);
-      scoreRecorded = true;
     }
   }
 }
@@ -117,6 +116,7 @@ void gameInit(void) {
   texPauseBg = iLoadImage("Asset\\Pause Menu files\\pause menu bg.png");
   texResume = iLoadImage("Asset\\Pause Menu files\\resume.png");
   texReturnMenu = iLoadImage("Asset\\Pause Menu files\\return to menu.png");
+  texCongrats = iLoadImage("Asset\\congratulations.png");
 
   /* Also reset state on first init */
   roadReset();
@@ -124,6 +124,7 @@ void gameInit(void) {
   enemyReset();
   isPaused = false;
   scoreRecorded = false;
+  isLeaderboardQualifier = false;
 }
 
 /* gameReset: Lightweight state-only reset for restarting the game.
@@ -142,6 +143,7 @@ void gameReset(void) {
   enemyReset();
   isPaused = false;
   scoreRecorded = false;
+  isLeaderboardQualifier = false;
 }
 
 /* gameDraw: Renders the complete game scene in correct layer order.
@@ -219,8 +221,22 @@ void iDraw() {
     break;
 
   case STATE_GAME:
+    gameDraw(); /* Game scene */
+    break;
+
   case STATE_GAMEOVER:
-    gameDraw(); /* Game scene (game over overlay is drawn by uiDraw) */
+    if (isLeaderboardQualifier) {
+      /* Show congratulations screen for leaderboard-qualifying scores */
+      iShowImage(0, 0, 1920, 1080, texCongrats);
+      iSetColor(255, 255, 255);
+      char finalScore[64];
+      sprintf_s(finalScore, "Your Score: %d", player.score);
+      iText(960 - 100, 300, finalScore, GLUT_BITMAP_TIMES_ROMAN_24);
+      iText(960 - 120, 250, "Press 'R' to restart.", GLUT_BITMAP_TIMES_ROMAN_24);
+      iText(960 - 130, 200, "Press 'ESC' to escape.", GLUT_BITMAP_TIMES_ROMAN_24);
+    } else {
+      gameDraw(); /* Normal game over overlay is drawn by uiDraw */
+    }
     break;
 
   case STATE_LEADERBOARD:

@@ -120,6 +120,9 @@ enum StagePhase {
   PHASE_WARNING3,
   PHASE_TRUCK3,
   PHASE_BOSS3,
+  PHASE_HEALTH_TRUCK3,
+  PHASE_CLOUD_IN3,
+  PHASE_CLOUD_OUT3,
   PHASE_WIN
 };
 
@@ -461,8 +464,8 @@ void enemyReset(void) {
 
   /* Reset Boss state */
   boss.active = false;
-  boss.health = 0;
-  boss.maxHealth = 200;
+  boss.health = 200 + loopCount * 100;
+  boss.maxHealth = 200 + loopCount * 100;
   boss.state = 0;
   boss.timer = 0;
   boss.x = 0;
@@ -494,8 +497,8 @@ void enemyReset(void) {
 
   /* Reset Boss2 */
   boss2.active = false;
-  boss2.health = 0;
-  boss2.maxHealth = 300;
+  boss2.health = 300 + loopCount * 100;
+  boss2.maxHealth = 300 + loopCount * 100;
   boss2.state = 0;
   boss2.timer = 0;
   boss2.x = 0;
@@ -519,8 +522,8 @@ void enemyReset(void) {
 
   /* Reset Boss3 */
   boss3.active = false;
-  boss3.health = 0;
-  boss3.maxHealth = BOSS3_MAX_HP;
+  boss3.health = BOSS3_MAX_HP + loopCount * 150;
+  boss3.maxHealth = BOSS3_MAX_HP + loopCount * 150;
   boss3.state = 0;
   boss3.timer = 0;
   boss3.fireTimer = 0;
@@ -540,9 +543,9 @@ void enemyReset(void) {
 void enemySpawn(void) {
   /* 1. Normal Wave Logic */
   int maxEnemies = 3;
-  if ((!bossFightOver && player.score >= 250) ||
-      (bossFightOver && !boss2FightOver && player.score >= 1750) ||
-      (boss2FightOver && player.score >= 3250))
+  if ((!bossFightOver && player.score >= (250 + loopCount * 4500)) ||
+      (bossFightOver && !boss2FightOver && player.score >= (1750 + loopCount * 4500)) ||
+      (boss2FightOver && player.score >= (3250 + loopCount * 4500)))
     maxEnemies = 5;
 
   int activeCount = 0;
@@ -562,7 +565,7 @@ void enemySpawn(void) {
       range = 1;
     e.x = ROAD_LEFT_LIMIT + (float)(rand() % range);
     e.y = (float)(-ENEMY_HEIGHT - (rand() % 400));
-    e.speed = ENEMY_SPEED_BASE + (rand() % 3);
+    e.speed = ENEMY_SPEED_BASE + (rand() % 3) + loopCount * 1.5f;
     e.health = ENEMY_MAX_HP;
     e.frame = 0;
     e.frameTimer = 0;
@@ -580,12 +583,14 @@ void enemySpawn(void) {
 
   /* 2. Special Enemy Spawn Logic */
   /* "After 500 points for every 100 points spawn 2 special enemy types" */
-  if ((!bossFightOver && player.score >= 500) ||
-      (bossFightOver && !boss2FightOver && player.score >= 2000) ||
-      (boss2FightOver && player.score >= 3500)) {
+  if ((!bossFightOver && player.score >= (500 + loopCount * 4500)) ||
+      (bossFightOver && !boss2FightOver && player.score >= (2000 + loopCount * 4500)) ||
+      (boss2FightOver && player.score >= (3500 + loopCount * 4500))) {
     if (player.score - lastSpecialScore >= 100) {
       /* Trigger Spawn */
-      lastSpecialScore += 100; /* Advance threshold */
+      int gap = 100 - loopCount * 15;
+      if (gap < 50) gap = 50; /* Hard cap minimum gap */
+      lastSpecialScore += gap; /* Advance threshold */
 
       /* Spawn 2 in stage 1, 1 in stage 2/3 */
       int spawnCount = bossFightOver ? 1 : 2;
@@ -596,7 +601,7 @@ void enemySpawn(void) {
           range = 1;
         e.x = ROAD_LEFT_LIMIT + (float)(rand() % range);
         e.y = (float)(-ENEMY_HEIGHT - 200 - (k * 150)); /* Staggered */
-        e.speed = ENEMY_SPEED_BASE;                     /* Start simple */
+        e.speed = ENEMY_SPEED_BASE + loopCount * 1.5f;                     /* Start simple */
         e.health = SPECIAL_MAX_HP;
         e.frame = 0;
         e.frameTimer = 0;
@@ -617,8 +622,8 @@ void enemySpawn(void) {
   }
 
   /* 4. Special Enemy 2 Spawn Logic (Stage 2, score >= 2000) */
-  if (bossFightOver && ((player.score >= 2000 && !boss2FightOver) ||
-                        (boss2FightOver && player.score >= 3500))) {
+  if (bossFightOver && ((player.score >= (2000 + loopCount * 4500) && !boss2FightOver) ||
+                        (boss2FightOver && player.score >= (3500 + loopCount * 4500)))) {
     /* Count active Special Enemy 2s */
     int se2Count = 0;
     for (unsigned int i = 0; i < enemies.size(); i++)
@@ -663,7 +668,7 @@ void enemySpawn(void) {
   }
 
   /* 5. Special Enemy 3 Spawn Logic (Stage 3, score >= 3500) */
-  if (boss2FightOver && player.score >= 3500) {
+  if (boss2FightOver && player.score >= (3500 + loopCount * 4500)) {
     int se3Count = 0;
     for (unsigned int i = 0; i < se3Enemies.size(); i++)
       if (se3Enemies[i].active)
@@ -728,19 +733,19 @@ void enemyUpdate(void) {
   }
 
   /* ── Boss Stage Logic ────────────────────────────── */
-  if (currentPhase == PHASE_NORMAL && player.score >= 1000 && !bossFightOver) {
+  if (currentPhase == PHASE_NORMAL && player.score >= (1000 + loopCount * 4500) && !bossFightOver) {
     currentPhase = PHASE_WARNING;
   }
 
   /* Stage 2 Boss trigger (must not re-trigger in Stage 3) */
   if (currentPhase == PHASE_NORMAL && bossFightOver && !boss2FightOver &&
-      player.score >= 2500) {
+      player.score >= (2500 + loopCount * 4500)) {
     currentPhase = PHASE_WARNING2;
   }
 
   /* Stage 3 Boss trigger */
   if (currentPhase == PHASE_NORMAL && boss2FightOver &&
-      player.score >= 4000) {
+      player.score >= (4000 + loopCount * 4500)) {
     currentPhase = PHASE_WARNING3;
   }
 
@@ -831,8 +836,8 @@ void enemyUpdate(void) {
       boss.active = true;
       boss.x = 960 - 125; /* Center (250w) */
       boss.y = 1200;      /* Top */
-      boss.health = 200;
-      boss.maxHealth = 200;
+      boss.health = 200 + loopCount * 100;
+      boss.maxHealth = 200 + loopCount * 100;
       boss.state = 0; /* Ram */
       boss.timer = 0;
     }
@@ -943,7 +948,7 @@ void enemyUpdate(void) {
         if (player.active &&
             checkAABB(bossMissiles[bm].x, bossMissiles[bm].y, 40, 40, player.x,
                       player.y, CAR_DRAW_W, CAR_DRAW_H)) {
-          player.health -= 10;
+          player.health -= (10 + loopCount * 5);
           bossMissiles[bm].active = false;
         }
       }
@@ -1047,7 +1052,7 @@ void enemyUpdate(void) {
       /* Boss Rams Player */
       if (boss.state == 0) { /* Only damage if ramming? Or always collision? "If
                                 the boss successfully rams the player..." */
-        player.health -= 10;
+        player.health -= (10 + loopCount * 5);
         /* Push player? */
         player.y -= 50;
       }
@@ -1145,8 +1150,8 @@ void enemyUpdate(void) {
       cloudLeftX = 0.0f;
       cloudRightX = 0.0f;
       /* Perform road swap while fully covered */
-      player.score = 1500;
-      lastSpecialScore = 1900;
+      player.score = 1500 + loopCount * 4500;
+      lastSpecialScore = 1900 + loopCount * 4500;
       enemies.clear();
       puddles.clear();
       npcs.clear();
@@ -1255,8 +1260,8 @@ void enemyUpdate(void) {
       boss2.active = true;
       boss2.x = 960 - BOSS2_W / 2;
       boss2.y = 1200;
-      boss2.health = 300;
-      boss2.maxHealth = 300;
+      boss2.health = 300 + loopCount * 100;
+      boss2.maxHealth = 300 + loopCount * 100;
       boss2.state = 0;
       boss2.timer = 0;
       boss2.fireTimer = 0;
@@ -1371,7 +1376,7 @@ void enemyUpdate(void) {
         if (player.active &&
             checkAABB(boss2Projectiles[i].x, boss2Projectiles[i].y, 20, 20,
                       player.x, player.y, CAR_DRAW_W, CAR_DRAW_H)) {
-          player.health -= 5;
+          player.health -= (5 + loopCount * 2);
           boss2Projectiles[i].active = false;
         }
       }
@@ -1390,7 +1395,7 @@ void enemyUpdate(void) {
         if (player.active &&
             checkAABB(boss2Missiles[i].x, boss2Missiles[i].y, 40, 40, player.x,
                       player.y, CAR_DRAW_W, CAR_DRAW_H)) {
-          player.health -= 10;
+          player.health -= (10 + loopCount * 5);
           boss2Missiles[i].active = false;
         }
       }
@@ -1622,8 +1627,8 @@ void enemyUpdate(void) {
       cloudLeftX = 0.0f;
       cloudRightX = 0.0f;
       /* Perform road swap while fully covered */
-      player.score = 3000;
-      lastSpecialScore = 3400;
+      player.score = 3000 + loopCount * 4500;
+      lastSpecialScore = 3400 + loopCount * 4500;
       enemies.clear();
       puddles.clear();
       npcs.clear();
@@ -1635,6 +1640,106 @@ void enemyUpdate(void) {
   }
 
   if (currentPhase == PHASE_CLOUD_OUT2) {
+    cloudLeftX -= CLOUD_SPEED;
+    cloudRightX += CLOUD_SPEED;
+    if (cloudLeftX <= -1920.0f) {
+      cloudLeftX = -1920.0f;
+      cloudRightX = 1920.0f;
+      currentPhase = PHASE_NORMAL;
+    }
+    return;
+  }
+
+  /* ── Post-Boss3 Health Truck Phase ───────────────────── */
+  if (currentPhase == PHASE_HEALTH_TRUCK3) {
+    if (healthTruck.active) {
+      healthTruck.timer++;
+      switch (healthTruck.state) {
+      case 0: /* Enter */
+        healthTruck.y += 12.0f;
+        if (healthTruck.y >= player.y + 300) {
+          healthTruck.state = 1;
+          healthTruck.timer = 0;
+        }
+        break;
+      case 1: /* Animate */
+        if (healthTruck.timer % 5 == 0)
+          healthTruck.animFrame++;
+        if (healthTruck.animFrame >= 16) {
+          healthTruck.state = 2;
+          healthTruck.timer = 0;
+        }
+        break;
+      case 2: /* Drop Health Orb */
+        healthOrb.active = true;
+        healthOrb.x = healthTruck.x + 64;
+        healthOrb.y = healthTruck.y;
+        healthTruck.state = 3;
+        healthTruck.timer = 0;
+        break;
+      case 3: /* Truck Exit */
+        healthTruck.y += 12.0f;
+        if (healthTruck.y > 1200)
+          healthTruck.active = false;
+        break;
+      }
+    }
+
+    /* Health orb falls toward player */
+    if (healthOrb.active) {
+      healthOrb.y -= ROAD_SCROLL_SPEED;
+      if (checkAABB(healthOrb.x, healthOrb.y, 100, 100, player.x, player.y,
+                    CAR_DRAW_W, CAR_DRAW_H)) {
+        healthOrb.active = false;
+        player.health = PLAYER_MAX_HEALTH;
+      } else if (healthOrb.y < -150) {
+        healthOrb.active = false;
+      }
+    }
+
+    /* If truck gone and orb gone: start cloud transition to loop */
+    if (!healthTruck.active && !healthOrb.active) {
+      currentPhase = PHASE_CLOUD_IN3;
+      cloudLeftX = -1920.0f;
+      cloudRightX = 1920.0f;
+    }
+    return;
+  }
+
+  /* ── Cloud Transition Stage 3 → Loop (Stage 1 again) ──── */
+  if (currentPhase == PHASE_CLOUD_IN3) {
+    cloudLeftX += CLOUD_SPEED;
+    cloudRightX -= CLOUD_SPEED;
+    if (cloudLeftX >= 0.0f) {
+      cloudLeftX = 0.0f;
+      cloudRightX = 0.0f;
+      /* Reset boss flags for the new loop */
+      bossFightOver = false;
+      boss2FightOver = false;
+      /* Keep boss3FightOver true forever (5 stars) */
+      loopCount++;
+      lastSpecialScore = 400 + loopCount * 4500;
+      special2SpawnTimer = 0;
+      se3SpawnTimer = 0;
+      /* Clear everything */
+      enemies.clear();
+      puddles.clear();
+      npcs.clear();
+      se3Enemies.clear();
+      se3Projectiles.clear();
+      bossMissiles.clear();
+      boss2Projectiles.clear();
+      boss2Missiles.clear();
+      boss3Projectiles.clear();
+      boss3Missiles.clear();
+      /* Swap road back to Stage 1 (road 4.png) */
+      roadChangeStage((char *)"Asset/Roads/road 4.png");
+      currentPhase = PHASE_CLOUD_OUT3;
+    }
+    return;
+  }
+
+  if (currentPhase == PHASE_CLOUD_OUT3) {
     cloudLeftX -= CLOUD_SPEED;
     cloudRightX += CLOUD_SPEED;
     if (cloudLeftX <= -1920.0f) {
@@ -1739,8 +1844,8 @@ void enemyUpdate(void) {
       boss3.active = true;
       boss3.x = 960 - BOSS3_W / 2;
       boss3.y = 1200; /* Enter from top */
-      boss3.health = BOSS3_MAX_HP;
-      boss3.maxHealth = BOSS3_MAX_HP;
+      boss3.health = BOSS3_MAX_HP + loopCount * 150;
+      boss3.maxHealth = BOSS3_MAX_HP + loopCount * 150;
       boss3.state = 0; /* Bomb drop */
       boss3.timer = 0;
       boss3.fireTimer = 0;
@@ -1955,8 +2060,18 @@ void enemyUpdate(void) {
       if (boss3DeathTimer > 180) {
         boss3.active = false;
         boss3.health = 0;
-        currentPhase = PHASE_WIN;
+        player.score += 500; /* Boss kill bonus */
+        boss3FightOver = true;
+        currentPhase = PHASE_HEALTH_TRUCK3;
         boss3DeathTimer = 0;
+
+        /* Start health truck */
+        healthTruck.active = true;
+        healthTruck.x = 960 - 128;
+        healthTruck.y = -300;
+        healthTruck.state = 0;
+        healthTruck.timer = 0;
+        healthTruck.animFrame = 0;
       }
       return;
     }
@@ -1982,7 +2097,7 @@ void enemyUpdate(void) {
             checkAABB(boss3Bombs[i].x, boss3Bombs[i].y, BOSS3_BOMB_W,
                       BOSS3_BOMB_H, player.x, player.y, CAR_DRAW_W,
                       CAR_DRAW_H)) {
-          player.health -= BOSS3_BOMB_DMG;
+          player.health -= (BOSS3_BOMB_DMG + loopCount * 10);
           boss3Bombs[i].active = false;
           /* Explosion animation */
           Explosion ex;
@@ -2006,7 +2121,7 @@ void enemyUpdate(void) {
         if (player.active &&
             checkAABB(boss3Projectiles[i].x, boss3Projectiles[i].y, 20, 20,
                       player.x, player.y, CAR_DRAW_W, CAR_DRAW_H)) {
-          player.health -= BOSS3_PROJ_DMG;
+          player.health -= (BOSS3_PROJ_DMG + loopCount * 2);
           boss3Projectiles[i].active = false;
         }
       }
@@ -2023,7 +2138,7 @@ void enemyUpdate(void) {
         if (player.active &&
             checkAABB(boss3Missiles[i].x, boss3Missiles[i].y, 40, 40,
                       player.x, player.y, CAR_DRAW_W, CAR_DRAW_H)) {
-          player.health -= BOSS3_MISSILE_DMG;
+          player.health -= (BOSS3_MISSILE_DMG + loopCount * 5);
           boss3Missiles[i].active = false;
         }
       }
@@ -2045,7 +2160,7 @@ void enemyUpdate(void) {
       if (checkAABB(puddles[i].x, puddles[i].y, PUDDLE_W, PUDDLE_H, player.x,
                     player.y, CAR_DRAW_W, CAR_DRAW_H)) {
         /* Trigger Loss of Control */
-        player.lossControlTimer = 120; /* 2 Seconds */
+        player.lossControlTimer = 120 + (loopCount * 30); /* 2 Seconds + 0.5s per loop */
         puddles[i].active = false;     /* Splash/Consume */
       }
     }
@@ -2273,12 +2388,12 @@ void enemyUpdate(void) {
           if (enemies[i].type == TYPE_SPECIAL2)
             killScore = 20;
           player.score += killScore;
-          if (!bossFightOver && player.score > 1000)
-            player.score = 1000;
-          if (bossFightOver && !boss2FightOver && player.score > 2500)
-            player.score = 2500;
-          if (boss2FightOver && player.score > 4000)
-            player.score = 4000;
+          if (!bossFightOver && player.score > (1000 + loopCount * 4500))
+            player.score = (1000 + loopCount * 4500);
+          if (bossFightOver && !boss2FightOver && player.score > (2500 + loopCount * 4500))
+            player.score = (2500 + loopCount * 4500);
+          if (boss2FightOver && player.score > (4000 + loopCount * 4500))
+            player.score = (4000 + loopCount * 4500);
           break;
         }
       }
@@ -2314,44 +2429,123 @@ void enemyUpdate(void) {
       se.y += (mdy / mDist) * SE3_SPEED;
     }
 
-    /* -- Player avoidance: stay outside player's hitbox -- */
-    float pcx = player.x + CAR_DRAW_W / 2.0f;
-    float pcy = player.y + CAR_DRAW_H / 2.0f;
-    float scx = se.x + SE3_W / 2.0f;
-    float scy = se.y + SE3_H / 2.0f;
-    float pdx = scx - pcx;
-    float pdy = scy - pcy;
-    float pDist = sqrt(pdx * pdx + pdy * pdy);
-    if (pDist < SE3_AVOID_DIST && pDist > 0.01f) {
-      /* Push away from player */
-      se.x += (pdx / pDist) * (SE3_SPEED + 1.0f);
-      se.y += (pdy / pDist) * (SE3_SPEED + 1.0f);
-      /* Pick a new target away from player */
+    /* -- Bounce off Player (No Damage) -- */
+    if (player.active &&
+        checkAABB(se.x + SE3_HB_X, se.y + SE3_HB_Y, SE3_HB_W, SE3_HB_H,
+                  player.x + PLAYER_HB_X, player.y + PLAYER_HB_Y, PLAYER_HB_W, PLAYER_HB_H)) {
+      /* Smooth velocity bounce: reverse current path direction */
+      if (mDist > 0.01f) {
+        se.x -= (mdx / mDist) * 15.0f;
+        se.y -= (mdy / mDist) * 15.0f;
+      }
+      se.y -= 5; /* Add slight pushback */
+
+      /* Smart Pathing: Pick a new target to steer away */
       int rangeX = ROAD_RIGHT_LIMIT - SE3_W - ROAD_LEFT_LIMIT;
       if (rangeX < 1) rangeX = 1;
       se.targetX = ROAD_LEFT_LIMIT + (float)(rand() % rangeX);
       se.targetY = 100.0f + (float)(rand() % 800);
     }
 
-    /* -- Avoid NPCs -- */
+    /* -- Bounce off NPCs -- */
     for (unsigned int n = 0; n < npcs.size(); n++) {
       if (npcs[n].active &&
           checkAABB(se.x + SE3_HB_X, se.y + SE3_HB_Y, SE3_HB_W, SE3_HB_H,
                     npcs[n].x + NPC_HB_X, npcs[n].y + NPC_HB_Y, NPC_HB_W, NPC_HB_H)) {
-        if (se.x < npcs[n].x) se.x -= 15;
-        else se.x += 15;
-        se.y -= 20;
+        /* Smooth bounce */
+        if (mDist > 0.01f) {
+            se.x -= (mdx / mDist) * 10.0f;
+            se.y -= (mdy / mDist) * 10.0f;
+        }
+        se.y -= 5;
+
+        /* Smart Pathing: Target new location immediately to avoid getting stuck */
+        int rangeX = ROAD_RIGHT_LIMIT - SE3_W - ROAD_LEFT_LIMIT;
+        if (rangeX < 1) rangeX = 1;
+        se.targetX = ROAD_LEFT_LIMIT + (float)(rand() % rangeX);
+        se.targetY = 100.0f + (float)(rand() % 800);
       }
     }
 
-    /* -- Avoid other enemies -- */
+    /* -- Bounce off other enemies -- */
     for (unsigned int e2 = 0; e2 < enemies.size(); e2++) {
       if (enemies[e2].active &&
           checkAABB(se.x + SE3_HB_X, se.y + SE3_HB_Y, SE3_HB_W, SE3_HB_H,
                     enemies[e2].x + ENEMY_HB_X, enemies[e2].y + ENEMY_HB_Y, ENEMY_HB_W, ENEMY_HB_H)) {
-        if (se.x < enemies[e2].x) se.x -= 15;
-        else se.x += 15;
-        se.y -= 20;
+        /* Smooth bounce */
+        if (mDist > 0.01f) {
+            se.x -= (mdx / mDist) * 10.0f;
+            se.y -= (mdy / mDist) * 10.0f;
+        }
+        se.y -= 5;
+
+        /* Smart Pathing: Reroute away from blocked path */
+        int rangeX = ROAD_RIGHT_LIMIT - SE3_W - ROAD_LEFT_LIMIT;
+        if (rangeX < 1) rangeX = 1;
+        se.targetX = ROAD_LEFT_LIMIT + (float)(rand() % rangeX);
+        se.targetY = 100.0f + (float)(rand() % 800);
+      }
+    }
+
+    /* -- Bounce off Boss 1 -- */
+    if (boss.active &&
+        checkAABB(se.x + SE3_HB_X, se.y + SE3_HB_Y, SE3_HB_W, SE3_HB_H,
+                  boss.x, boss.y, 250, 250)) {
+        if (mDist > 0.01f) {
+            se.x -= (mdx / mDist) * 15.0f;
+            se.y -= (mdy / mDist) * 15.0f;
+        }
+        se.y -= 5;
+        int rangeX = ROAD_RIGHT_LIMIT - SE3_W - ROAD_LEFT_LIMIT;
+        if (rangeX < 1) rangeX = 1;
+        se.targetX = ROAD_LEFT_LIMIT + (float)(rand() % rangeX);
+        se.targetY = 100.0f + (float)(rand() % 800);
+    }
+
+    /* -- Bounce off Boss 2 -- */
+    if (boss2.active &&
+        checkAABB(se.x + SE3_HB_X, se.y + SE3_HB_Y, SE3_HB_W, SE3_HB_H,
+                  boss2.x, boss2.y, BOSS2_W, BOSS2_H)) {
+        if (mDist > 0.01f) {
+            se.x -= (mdx / mDist) * 15.0f;
+            se.y -= (mdy / mDist) * 15.0f;
+        }
+        se.y -= 5;
+        int rangeX = ROAD_RIGHT_LIMIT - SE3_W - ROAD_LEFT_LIMIT;
+        if (rangeX < 1) rangeX = 1;
+        se.targetX = ROAD_LEFT_LIMIT + (float)(rand() % rangeX);
+        se.targetY = 100.0f + (float)(rand() % 800);
+    }
+
+    /* -- Bounce off Boss 3 -- */
+    if (boss3.active &&
+        checkAABB(se.x + SE3_HB_X, se.y + SE3_HB_Y, SE3_HB_W, SE3_HB_H,
+                  boss3.x, boss3.y, BOSS3_W, BOSS3_H)) {
+        if (mDist > 0.01f) {
+            se.x -= (mdx / mDist) * 15.0f;
+            se.y -= (mdy / mDist) * 15.0f;
+        }
+        se.y -= 5;
+        int rangeX = ROAD_RIGHT_LIMIT - SE3_W - ROAD_LEFT_LIMIT;
+        if (rangeX < 1) rangeX = 1;
+        se.targetX = ROAD_LEFT_LIMIT + (float)(rand() % rangeX);
+        se.targetY = 100.0f + (float)(rand() % 800);
+    }
+
+    /* -- Bounce off other SE3 peers -- */
+    for (unsigned int sePeer = 0; sePeer < se3Enemies.size(); sePeer++) {
+      if (se3Enemies[sePeer].active && sePeer != i &&
+          checkAABB(se.x + SE3_HB_X, se.y + SE3_HB_Y, SE3_HB_W, SE3_HB_H,
+                    se3Enemies[sePeer].x + SE3_HB_X, se3Enemies[sePeer].y + SE3_HB_Y, SE3_HB_W, SE3_HB_H)) {
+        if (mDist > 0.01f) {
+            se.x -= (mdx / mDist) * 10.0f;
+            se.y -= (mdy / mDist) * 10.0f;
+        }
+        se.y -= 5;
+        int rangeX = ROAD_RIGHT_LIMIT - SE3_W - ROAD_LEFT_LIMIT;
+        if (rangeX < 1) rangeX = 1;
+        se.targetX = ROAD_LEFT_LIMIT + (float)(rand() % rangeX);
+        se.targetY = 100.0f + (float)(rand() % 800);
       }
     }
 
@@ -2362,8 +2556,10 @@ void enemyUpdate(void) {
     if (se.y > 1080 - SE3_H) se.y = (float)(1080 - SE3_H);
 
     /* -- Cannon tracking: aim at player -- */
-    scx = se.x + SE3_W / 2.0f; /* Recalc after movement */
-    scy = se.y + SE3_H / 2.0f;
+    float pcx = player.x + CAR_DRAW_W / 2.0f;
+    float pcy = player.y + CAR_DRAW_H / 2.0f;
+    float scx = se.x + SE3_W / 2.0f; /* Recalc after movement */
+    float scy = se.y + SE3_H / 2.0f;
     float tdx = pcx - scx;
     float tdy = pcy - scy;
     float tAngleDeg = atan2(tdy, tdx) * 180.0f / PI;
@@ -2642,7 +2838,8 @@ void enemyDraw(void) {
  * This is the LEVEL TRANSITION MECHANISM using clouds. */
 void cloudOverlayDraw(void) {
   if (currentPhase == PHASE_CLOUD_IN || currentPhase == PHASE_CLOUD_OUT ||
-      currentPhase == PHASE_CLOUD_IN2 || currentPhase == PHASE_CLOUD_OUT2) {
+      currentPhase == PHASE_CLOUD_IN2 || currentPhase == PHASE_CLOUD_OUT2 ||
+      currentPhase == PHASE_CLOUD_IN3 || currentPhase == PHASE_CLOUD_OUT3) {
     iShowImage((int)cloudLeftX, 0, 1920, 1080, texCloudLeft);
     iShowImage((int)cloudRightX, 0, 1920, 1080, texCloudRight);
   }

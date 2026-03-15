@@ -188,12 +188,16 @@ void uiDraw(void) {
    * HOW TO CHANGE: Modify the score thresholds below.
    * EFFECT: Stars appear at different score milestones. */
   int row = 0;
-  if (player.score >= 500)
-    row = 1; /* 1 star at 500 points */
-  if (player.score >= 2000)
-    row = 2; /* 2 stars at 2000 points */
-  if (player.score >= 3500)
-    row = 3; /* 3 stars at 3500 points */
+  if (boss3FightOver) {
+    row = 5; /* 5 stars permanently after first Boss 3 kill (last row) */
+  } else {
+    if (player.score >= (500 + loopCount * 4500))
+      row = 1; /* 1 star at 500 points */
+    if (player.score >= (2000 + loopCount * 4500))
+      row = 2; /* 2 stars at 2000 points */
+    if (player.score >= (3500 + loopCount * 4500))
+      row = 3; /* 3 stars at 3500 points */
+  }
 
   iShowImageSub(STAR_X, STAR_Y, STAR_DRAW_W, STAR_DRAW_H, texStarSystem, row,
                 STAR_ROWS);
@@ -269,18 +273,7 @@ void uiDraw(void) {
     iText(50, 50, mis3Str, GLUT_BITMAP_TIMES_ROMAN_24);
   }
 
-  /* ── Win Screen ─────────────────────────────────────── */
-  /* Displayed when both bosses are defeated (PHASE_WIN) */
-  if (phase == PHASE_WIN) {
-    iShowImage(0, 0, 1920, 1080, texWinBg); /* Full-screen background overlay */
-    iSetColor(255, 255, 255);
-    iText(960 - 150, 540 + 40, "Congratulations, You win.",
-          GLUT_BITMAP_TIMES_ROMAN_24);
-    iText(960 - 120, 540 - 10, "Press 'R' to restart.",
-          GLUT_BITMAP_TIMES_ROMAN_24);
-    iText(960 - 130, 540 - 60, "Press 'ESC' to escape.",
-          GLUT_BITMAP_TIMES_ROMAN_24);
-  }
+  /* Win screen is no longer used — game loops endlessly */
 
   /* ── 6. Game Over Overlay ────────────────────────────── */
   /* Displayed when player health reaches 0 */

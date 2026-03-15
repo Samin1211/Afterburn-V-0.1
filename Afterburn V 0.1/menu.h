@@ -64,6 +64,7 @@ void drawStartScreen(void);
 /*  Leaderboard API  */
 void leaderboardInit(void);
 void leaderboardAddScore(int score);
+bool leaderboardQualifies(int score);
 void leaderboardReset(void);
 void drawLeaderboard(void);
 
