@@ -23,6 +23,17 @@ void roadChangeStage(char path[]);
 #define ENEMY_SELF_RAM 2
 /* PROJECTILE_DMG is in NPC.h */
 
+/* Hitbox insets: shrink collision box to match visible sprite bounds */
+#define ENEMY_HB_X  25    /* Left/right inset from draw origin */
+#define ENEMY_HB_Y  5     /* Bottom/top inset from draw origin */
+#define ENEMY_HB_W  50    /* Police/SE1/SE2 collision width  */
+#define ENEMY_HB_H  90    /* Police/SE1/SE2 collision height */
+
+#define SE3_HB_X    30
+#define SE3_HB_Y    10
+#define SE3_HB_W    40
+#define SE3_HB_H    80
+
 /* Explosion Config is in NPC.h */
 
 /*  Special Effect Config (Grid 4x4 assumed)                     */
@@ -2037,8 +2048,8 @@ void enemyUpdate(void) {
       /* Avoid NPCs */
       for (unsigned int n = 0; n < npcs.size(); n++) {
         if (npcs[n].active &&
-            checkAABB(enemies[i].x, enemies[i].y, ENEMY_WIDTH, ENEMY_HEIGHT,
-                      npcs[n].x, npcs[n].y, NPC_WIDTH, NPC_HEIGHT)) {
+            checkAABB(enemies[i].x + ENEMY_HB_X, enemies[i].y + ENEMY_HB_Y, ENEMY_HB_W, ENEMY_HB_H,
+                      npcs[n].x + NPC_HB_X, npcs[n].y + NPC_HB_Y, NPC_HB_W, NPC_HB_H)) {
           /* Bounce apart (no damage) */
           if (enemies[i].x < npcs[n].x)
             enemies[i].x -= 15;
@@ -2121,8 +2132,8 @@ void enemyUpdate(void) {
       /* Avoid NPCs */
       for (unsigned int n = 0; n < npcs.size(); n++) {
         if (npcs[n].active &&
-            checkAABB(enemies[i].x, enemies[i].y, ENEMY_WIDTH, ENEMY_HEIGHT,
-                      npcs[n].x, npcs[n].y, NPC_WIDTH, NPC_HEIGHT)) {
+            checkAABB(enemies[i].x + ENEMY_HB_X, enemies[i].y + ENEMY_HB_Y, ENEMY_HB_W, ENEMY_HB_H,
+                      npcs[n].x + NPC_HB_X, npcs[n].y + NPC_HB_Y, NPC_HB_W, NPC_HB_H)) {
           if (enemies[i].x < npcs[n].x)
             enemies[i].x -= 15;
           else
@@ -2184,8 +2195,8 @@ void enemyUpdate(void) {
     /* Collisions */
     /* Vs Player */
     if (player.active && enemies[i].type != TYPE_SPECIAL1 &&
-        checkAABB(enemies[i].x, enemies[i].y, ENEMY_WIDTH, ENEMY_WIDTH,
-                  player.x, player.y, CAR_DRAW_W, CAR_DRAW_H)) {
+        checkAABB(enemies[i].x + ENEMY_HB_X, enemies[i].y + ENEMY_HB_Y, ENEMY_HB_W, ENEMY_HB_H,
+                  player.x + PLAYER_HB_X, player.y + PLAYER_HB_Y, PLAYER_HB_W, PLAYER_HB_H)) {
       player.health -= ENEMY_RAM_DMG;
       enemies[i].health -= 2;
       enemies[i].y -= 20; /* Bounce */
@@ -2194,8 +2205,8 @@ void enemyUpdate(void) {
     /* Vs Projectiles */
     for (unsigned int p = 0; p < projectiles.size(); p++) {
       if (projectiles[p].active &&
-          checkAABB(projectiles[p].x, projectiles[p].y, 20, 20, enemies[i].x,
-                    enemies[i].y, ENEMY_WIDTH, ENEMY_HEIGHT)) {
+          checkAABB(projectiles[p].x, projectiles[p].y, 20, 20, enemies[i].x + ENEMY_HB_X,
+                    enemies[i].y + ENEMY_HB_Y, ENEMY_HB_W, ENEMY_HB_H)) {
 
         projectiles[p].active = false;
         enemies[i].health -= PROJECTILE_DMG;
@@ -2278,8 +2289,8 @@ void enemyUpdate(void) {
     /* -- Avoid NPCs -- */
     for (unsigned int n = 0; n < npcs.size(); n++) {
       if (npcs[n].active &&
-          checkAABB(se.x, se.y, SE3_W, SE3_H,
-                    npcs[n].x, npcs[n].y, NPC_WIDTH, NPC_HEIGHT)) {
+          checkAABB(se.x + SE3_HB_X, se.y + SE3_HB_Y, SE3_HB_W, SE3_HB_H,
+                    npcs[n].x + NPC_HB_X, npcs[n].y + NPC_HB_Y, NPC_HB_W, NPC_HB_H)) {
         if (se.x < npcs[n].x) se.x -= 15;
         else se.x += 15;
         se.y -= 20;
@@ -2289,8 +2300,8 @@ void enemyUpdate(void) {
     /* -- Avoid other enemies -- */
     for (unsigned int e2 = 0; e2 < enemies.size(); e2++) {
       if (enemies[e2].active &&
-          checkAABB(se.x, se.y, SE3_W, SE3_H,
-                    enemies[e2].x, enemies[e2].y, ENEMY_WIDTH, ENEMY_HEIGHT)) {
+          checkAABB(se.x + SE3_HB_X, se.y + SE3_HB_Y, SE3_HB_W, SE3_HB_H,
+                    enemies[e2].x + ENEMY_HB_X, enemies[e2].y + ENEMY_HB_Y, ENEMY_HB_W, ENEMY_HB_H)) {
         if (se.x < enemies[e2].x) se.x -= 15;
         else se.x += 15;
         se.y -= 20;
@@ -2333,7 +2344,7 @@ void enemyUpdate(void) {
     for (unsigned int p = 0; p < projectiles.size(); p++) {
       if (projectiles[p].active &&
           checkAABB(projectiles[p].x, projectiles[p].y, 20, 20,
-                    se.x, se.y, SE3_W, SE3_H)) {
+                    se.x + SE3_HB_X, se.y + SE3_HB_Y, SE3_HB_W, SE3_HB_H)) {
         projectiles[p].active = false;
         se.health -= SE3_PLAYER_DMG;
         if (se.health <= 0) {

@@ -79,6 +79,12 @@
 #define CAR_DRAW_W 100
 #define CAR_DRAW_H 100
 
+/* Hitbox insets: shrink collision box to match visible sprite bounds */
+#define PLAYER_HB_X 30    /* Left/right inset from draw origin */
+#define PLAYER_HB_Y 10    /* Bottom/top inset from draw origin */
+#define PLAYER_HB_W 40    /* Player collision width  */
+#define PLAYER_HB_H 80    /* Player collision height */
+
 /* ── Projectile Struct ──────────────────────────────────── */
 /* Projectile: Represents a single bullet fired by the player's cannon.
  * x, y   — Current position on screen (pixels).
