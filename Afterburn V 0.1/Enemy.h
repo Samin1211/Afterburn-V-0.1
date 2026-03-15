@@ -361,6 +361,51 @@ static void iShowEffectGrid(int x, int y, int w, int h, unsigned int texture,
   glDisable(GL_TEXTURE_2D);
 }
 
+/* iShowImageGridCentered: Draws a single frame from a sprite sheet grid, 
+ * anchored perfectly around a float center point.
+ * This prevents float-to-int rounding jitter when an entity moves at subpixel 
+ * speeds while changing sprite frames simultaneously. 
+ * USED BY: Boss2 tank turret rendering. */
+static void iShowImageGridCentered(float cx, float cy, float w, float h,
+                                   unsigned int texture, int frameIndex,
+                                   int rows, int cols) {
+  int r = frameIndex / cols;
+  int c = frameIndex % cols;
+  float cellW = 1.0f / cols;
+  float cellH = 1.0f / rows;
+  float uLeft = c * cellW;
+  float uRight = uLeft + cellW;
+  float vTop = -1.0f + r * cellH;
+  float vBottom = vTop + cellH;
+
+  float halfW = w / 2.0f;
+  float halfH = h / 2.0f;
+
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+
+  glPushMatrix();
+  glTranslatef(cx, cy, 0.0f);
+  glBegin(GL_QUADS);
+  glTexCoord2f(uLeft, vBottom);
+  glVertex2f(-halfW, -halfH);
+  glTexCoord2f(uRight, vBottom);
+  glVertex2f(halfW, -halfH);
+  glTexCoord2f(uRight, vTop);
+  glVertex2f(halfW, halfH);
+  glTexCoord2f(uLeft, vTop);
+  glVertex2f(-halfW, halfH);
+  glEnd();
+  glPopMatrix();
+
+  glDisable(GL_TEXTURE_2D);
+}
+
 /* ── Init (load textures — call once) ────────────────────── */
 /* enemyInit: Loads ALL enemy, boss, truck, orb, cloud, and effect textures.
  * Called once at startup from gameInit(). Police cars use 3 animation frames.
@@ -2482,9 +2527,22 @@ void enemyDraw(void) {
 
   /* ── Boss2 Drawing ─────────────────────────────────────── */
   if (currentPhase == PHASE_BOSS2 && boss2.active) {
-    /* Turret/Body (rotatable sprite sheet, same grid as Car.png) */
-    iShowImageGrid((int)boss2.x, (int)boss2.y, BOSS2_W, BOSS2_H, texTank,
-                   boss2.turretFrame, CAR_SHEET_ROWS, CAR_SHEET_COLS);
+    /* Turret/Body (rotatable sprite sheet, perfectly centered to prevent jitter) */
+    float bcx = boss2.x + BOSS2_W / 2.0f;
+    float bcy = boss2.y + BOSS2_H / 2.0f;
+
+    /* The Tank.png sprite sheet is internally unaligned. These offsets (calculated
+     * by measuring the exact center-of-mass of each frame's pixels) pull the image
+     * exactly back to the physical center of the 300x300 canvas to prevent jitter. */
+    static const float tankOffsetX[36] = { 49.5f, 18.0f, -11.0f, -39.5f, -65.5f, -78.0f, 40.0f, 17.0f, -2.0f, -21.0f, -40.0f, -62.0f, 66.0f, 40.5f, 15.0f, -10.5f, -34.0f, -51.5f, 80.5f, 62.5f, 40.5f, 17.0f, -8.5f, -34.5f, 80.5f, 62.0f, 31.0f, -0.5f, -33.5f, -62.0f, 66.0f, 40.5f, 15.0f, -11.0f, -40.0f, -73.0f };
+    static const float tankOffsetY[36] = { 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.0f, 1.0f, 1.0f, -1.5f, -6.5f, -12.0f, -13.0f, -13.0f, -11.0f, -9.5f, -6.5f, -1.0f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.0f, 1.0f, 1.0f, 6.5f, 11.5f, 15.0f, 17.5f, 18.0f, 18.0f, 16.5f, 12.0f, 7.0f };
+
+    /* Scale the 300x300 offsets down to match the rendering size (BOSS2_W / 300) */
+    float drawX = bcx + tankOffsetX[boss2.turretFrame] * ((float)BOSS2_W / 300.0f);
+    float drawY = bcy + tankOffsetY[boss2.turretFrame] * ((float)BOSS2_H / 300.0f);
+
+    iShowImageGridCentered(drawX, drawY, (float)BOSS2_W, (float)BOSS2_H, texTank,
+                           boss2.turretFrame, CAR_SHEET_ROWS, CAR_SHEET_COLS);
   }
 
   /* Boss2 Projectiles */
