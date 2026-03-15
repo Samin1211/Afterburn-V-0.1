@@ -48,6 +48,12 @@
 #define NPC_SHOOT_HP_PENALTY 5
 #define NPC_MAX_HP 15
 
+/* NPC hitbox insets: match visible car body within sprite */
+#define NPC_HB_X    25    /* Left inset from draw origin */
+#define NPC_HB_Y    5     /* Bottom inset from draw origin */
+#define NPC_HB_W    50    /* NPC collision width  */
+#define NPC_HB_H    90    /* NPC collision height */
+
 /*  Explosion Config (Grid 4x4)                                  */
 #define EXPLOSION_ROWS 4
 #define EXPLOSION_COLS 4
@@ -215,9 +221,9 @@ void npcUpdate(void) {
     /* Collision with Player (Ram) — uses a smaller hitbox (inset 15px each
      * side) for a more forgiving collision feel. NPC takes self damage on
      * contact. */
-    if (player.active && checkAABB(npcs[i].x + 15, npcs[i].y + 15,
-                                   NPC_WIDTH - 30, NPC_HEIGHT - 30, player.x,
-                                   player.y, CAR_DRAW_W, CAR_DRAW_H)) {
+    if (player.active && checkAABB(npcs[i].x + NPC_HB_X, npcs[i].y + NPC_HB_Y,
+                                   NPC_HB_W, NPC_HB_H, player.x + PLAYER_HB_X,
+                                   player.y + PLAYER_HB_Y, PLAYER_HB_W, PLAYER_HB_H)) {
       player.health -= NPC_RAM_HP_PENALTY;   /* Player loses 3 HP */
       player.score -= NPC_RAM_SCORE_PENALTY; /* Player loses 2 score */
       npcs[i].health -= 2;                   /* NPC self damage on ram */
@@ -243,8 +249,8 @@ void npcUpdate(void) {
     /* Collision with Player Projectiles (Shot) */
     for (unsigned int p = 0; p < projectiles.size(); p++) {
       if (projectiles[p].active &&
-          checkAABB(projectiles[p].x, projectiles[p].y, 20, 20, npcs[i].x,
-                    npcs[i].y, NPC_WIDTH, NPC_HEIGHT)) {
+          checkAABB(projectiles[p].x, projectiles[p].y, 20, 20, npcs[i].x + NPC_HB_X,
+                    npcs[i].y + NPC_HB_Y, NPC_HB_W, NPC_HB_H)) {
         projectiles[p].active = false;    /* Bullet consumed */
         npcs[i].health -= PROJECTILE_DMG; /* NPC takes 5 damage */
 

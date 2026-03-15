@@ -26,6 +26,8 @@ static unsigned int texHealthBar = 0;
 static unsigned int texStarSystem = 0;
 /* texWinBg: OpenGL texture for the win screen background (same as menu bg). */
 static unsigned int texWinBg = 0;
+/* texGameOver: OpenGL texture for the game over screen image. */
+static unsigned int texGameOver = 0;
 
 /* ── HUD layout constants (pixels, 1920x1080 canvas) ───── */
 
@@ -134,6 +136,7 @@ void uiInit(void) {
   texStarSystem =
       iLoadImage("Asset/Star System.png"); /* Star achievement sheet */
   texWinBg = iLoadImage("Asset/Menu files/background.png"); /* Win screen bg */
+  texGameOver = iLoadImage("Asset/game over.png"); /* Game over screen */
 }
 
 /* ── uiDraw ─────────────────────────────────────────────── */
@@ -185,12 +188,16 @@ void uiDraw(void) {
    * HOW TO CHANGE: Modify the score thresholds below.
    * EFFECT: Stars appear at different score milestones. */
   int row = 0;
-  if (player.score >= 500)
-    row = 1; /* 1 star at 500 points */
-  if (player.score >= 2000)
-    row = 2; /* 2 stars at 2000 points */
-  if (player.score >= 3500)
-    row = 3; /* 3 stars at 3500 points */
+  if (boss3FightOver) {
+    row = 5; /* 5 stars permanently after first Boss 3 kill (last row) */
+  } else {
+    if (player.score >= (500 + loopCount * 4500))
+      row = 1; /* 1 star at 500 points */
+    if (player.score >= (2000 + loopCount * 4500))
+      row = 2; /* 2 stars at 2000 points */
+    if (player.score >= (3500 + loopCount * 4500))
+      row = 3; /* 3 stars at 3500 points */
+  }
 
   iShowImageSub(STAR_X, STAR_Y, STAR_DRAW_W, STAR_DRAW_H, texStarSystem, row,
                 STAR_ROWS);
@@ -266,27 +273,12 @@ void uiDraw(void) {
     iText(50, 50, mis3Str, GLUT_BITMAP_TIMES_ROMAN_24);
   }
 
-  /* ── Win Screen ─────────────────────────────────────── */
-  /* Displayed when both bosses are defeated (PHASE_WIN) */
-  if (phase == PHASE_WIN) {
-    iShowImage(0, 0, 1920, 1080, texWinBg); /* Full-screen background overlay */
-    iSetColor(255, 255, 255);
-    iText(960 - 150, 540 + 40, "Congratulations, You win.",
-          GLUT_BITMAP_TIMES_ROMAN_24);
-    iText(960 - 120, 540 - 10, "Press 'R' to restart.",
-          GLUT_BITMAP_TIMES_ROMAN_24);
-    iText(960 - 130, 540 - 60, "Press 'ESC' to escape.",
-          GLUT_BITMAP_TIMES_ROMAN_24);
-  }
+  /* Win screen is no longer used — game loops endlessly */
 
   /* ── 6. Game Over Overlay ────────────────────────────── */
   /* Displayed when player health reaches 0 */
   if (gameState == STATE_GAMEOVER) {
-    iSetColor(255, 0, 0);
-    iText(960 - 50, 540 + 20, "YOU LOSE", GLUT_BITMAP_TIMES_ROMAN_24);
-    iSetColor(255, 255, 255);
-    iText(960 - 80, 540 - 20, "Press 'R' to Restart", GLUT_BITMAP_HELVETICA_18);
-    iText(960 - 80, 540 - 50, "Press 'ESC' to Menu", GLUT_BITMAP_HELVETICA_18);
+    iShowImage(0, 0, 1920, 1080, texGameOver);
   }
 }
 

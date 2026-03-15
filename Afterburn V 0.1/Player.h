@@ -79,6 +79,12 @@
 #define CAR_DRAW_W 100
 #define CAR_DRAW_H 100
 
+/* Hitbox insets: shrink collision box to match visible sprite bounds */
+#define PLAYER_HB_X 30    /* Left/right inset from draw origin */
+#define PLAYER_HB_Y 10    /* Bottom/top inset from draw origin */
+#define PLAYER_HB_W 40    /* Player collision width  */
+#define PLAYER_HB_H 80    /* Player collision height */
+
 /* ── Projectile Struct ──────────────────────────────────── */
 /* Projectile: Represents a single bullet fired by the player's cannon.
  * x, y   — Current position on screen (pixels).
@@ -143,6 +149,8 @@ static PlayerState player;
  * EFFECT: Controls which enemies spawn, score thresholds, and road texture. */
 static bool bossFightOver = false;
 static bool boss2FightOver = false;
+static bool boss3FightOver = false;
+static int loopCount = 0; /* How many full 3-stage loops completed */
 
 /* projectiles: Dynamic list of all active player cannon bullets on screen. */
 static std::vector<Projectile> projectiles;
@@ -267,6 +275,8 @@ void playerReset(void) {
   player.missileCount = 0;
   bossFightOver = false;
   boss2FightOver = false;
+  boss3FightOver = false;
+  loopCount = 0;
   projectiles.clear();
 }
 

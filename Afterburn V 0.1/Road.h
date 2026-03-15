@@ -95,8 +95,8 @@ void roadUpdate(void) {
     roadY = 0;
     /* Score frozen at 1000 during boss1 fight, and at 2500 during boss2 fight.
      * Resumes after each boss dies and cloud transition completes. */
-    if (player.score < 1000 || (bossFightOver && player.score < 2500) ||
-        (boss2FightOver && player.score < 4000)) {
+    if (player.score < (1000 + loopCount * 4500) || (bossFightOver && player.score < (2500 + loopCount * 4500)) ||
+        (boss2FightOver && player.score < (4000 + loopCount * 4500))) {
       player.score += 10; /* +10 score per completed road loop */
     }
   }

@@ -22,13 +22,24 @@
  * All rendering and input routing depends on this value.
  * HOW TO CHANGE: Set to any GameState enum value to switch screens.
  * EFFECT: Controls what the player sees and what logic runs. */
-GameState gameState = STATE_MENU;
+GameState gameState = STATE_STARTSCREEN;
 
 #include "Enemy.h"
 #include "Player.h"
 #include "Road.h"
 #include "UI.h"
 #include "options.h"
+
+/* ── Pause Menu Variables ───────────────────────────────── */
+bool isPaused = false;
+bool resumeHovered = false;
+bool returnMenuHovered = false;
+int texPauseBg, texResume, texReturnMenu;
+
+/* Flag to prevent double-recording score in a single game session */
+static bool scoreRecorded = false;
+static unsigned int texCongrats = 0;
+static bool isLeaderboardQualifier = false;
 
 /* ══════════════════════════════════════════════════════════
  *  GAME LOOP & LOGIC
@@ -53,6 +64,8 @@ GameState gameState = STATE_MENU;
 void gameUpdate(void) {
   /* Only update game logic if in Playing State */
   if (gameState == STATE_GAME) {
+    if (isPaused) return; /* Freeze everything */
+
     /* Update Player (Movement, Rotation, Projectiles) */
     playerUpdate();
 
@@ -66,8 +79,16 @@ void gameUpdate(void) {
      * Skip during win screen, boss dying, or boss2 dying to prevent
      * false game-overs from last-moment damage. */
     if (player.health <= 0 && getPhase() != PHASE_WIN && !isBossDying() &&
-        !isBoss2Dying() && !isBoss3Dying())
+        !isBoss2Dying() && !isBoss3Dying() &&
+        getPhase() != PHASE_HEALTH_TRUCK3 && getPhase() != PHASE_CLOUD_IN3 &&
+        getPhase() != PHASE_CLOUD_OUT3) {
+      if (!scoreRecorded) {
+        isLeaderboardQualifier = leaderboardQualifies(player.score);
+        leaderboardAddScore(player.score);
+        scoreRecorded = true;
+      }
       gameState = STATE_GAMEOVER;
+    }
   }
 }
 
@@ -91,10 +112,19 @@ void gameInit(void) {
   npcInit();     /* Load NPC car + explosion textures */
   enemyInit();   /* Load enemy, boss, truck, orb, cloud textures */
 
+  /* Load Pause Menu Textures */
+  texPauseBg = iLoadImage("Asset\\Pause Menu files\\pause menu bg.png");
+  texResume = iLoadImage("Asset\\Pause Menu files\\resume.png");
+  texReturnMenu = iLoadImage("Asset\\Pause Menu files\\return to menu.png");
+  texCongrats = iLoadImage("Asset\\congratulations.png");
+
   /* Also reset state on first init */
   roadReset();
   playerReset();
   enemyReset();
+  isPaused = false;
+  scoreRecorded = false;
+  isLeaderboardQualifier = false;
 }
 
 /* gameReset: Lightweight state-only reset for restarting the game.
@@ -111,6 +141,9 @@ void gameReset(void) {
   roadReset();
   playerReset();
   enemyReset();
+  isPaused = false;
+  scoreRecorded = false;
+  isLeaderboardQualifier = false;
 }
 
 /* gameDraw: Renders the complete game scene in correct layer order.
@@ -140,6 +173,31 @@ void gameDraw(void) {
   /* 4. Cloud transition overlay (on top of EVERYTHING during stage transitions)
    */
   cloudOverlayDraw();
+
+  /* 5. Pause Menu Overlay (Topmost over gameplay) */
+  if (isPaused) {
+    iShowImage(0, 0, 1920, 1080, texPauseBg);
+
+    /* Resume Button Hover Scaling */
+    int rW = 216, rH = 121, rX = 835, rY = 449;
+    if (resumeHovered) {
+      int gW = rW * 1.1;
+      int gH = rH * 1.1;
+      iShowImage(rX - (gW - rW) / 2, rY - (gH - rH) / 2, gW, gH, texResume);
+    } else {
+      iShowImage(rX, rY, rW, rH, texResume);
+    }
+
+    /* Return to Menu Button Hover Scaling */
+    int mmW = 395, mmH = 121, mmX = 760, mmY = 299;
+    if (returnMenuHovered) {
+      int gW = mmW * 1.1;
+      int gH = mmH * 1.1;
+      iShowImage(mmX - (gW - mmW) / 2, mmY - (gH - mmH) / 2, gW, gH, texReturnMenu);
+    } else {
+      iShowImage(mmX, mmY, mmW, mmH, texReturnMenu);
+    }
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -154,17 +212,35 @@ void iDraw() {
   iClear();
 
   switch (gameState) {
+  case STATE_STARTSCREEN:
+    drawStartScreen(); /* Full-screen starting page image */
+    break;
+
   case STATE_MENU:
     menuDraw(); /* Main menu with buttons */
     break;
 
   case STATE_GAME:
+    gameDraw(); /* Game scene */
+    break;
+
   case STATE_GAMEOVER:
-    gameDraw(); /* Game scene (game over overlay is drawn by uiDraw) */
+    if (isLeaderboardQualifier) {
+      /* Show congratulations screen for leaderboard-qualifying scores */
+      iShowImage(0, 0, 1920, 1080, texCongrats);
+      iSetColor(255, 255, 255);
+      char finalScore[64];
+      sprintf_s(finalScore, "Your Score: %d", player.score);
+      iText(960 - 100, 300, finalScore, GLUT_BITMAP_TIMES_ROMAN_24);
+      iText(960 - 120, 250, "Press 'R' to restart.", GLUT_BITMAP_TIMES_ROMAN_24);
+      iText(960 - 130, 200, "Press 'ESC' to escape.", GLUT_BITMAP_TIMES_ROMAN_24);
+    } else {
+      gameDraw(); /* Normal game over overlay is drawn by uiDraw */
+    }
     break;
 
   case STATE_LEADERBOARD:
-    drawPlaceholderLeaderboard(); /* Placeholder screen */
+    drawLeaderboard();
     break;
 
   case STATE_OPTIONS:
@@ -197,6 +273,10 @@ void iPassiveMouseMove(int mx, int my) {
     menuMouseMove(mx, my);
   } else if (gameState == STATE_OPTIONS) {
     optionsMouseMove(mx, my);
+  } else if (gameState == STATE_GAME && isPaused) {
+    /* Pause Menu Hover Detection */
+    resumeHovered = (mx >= 835 && mx <= 835 + 216 && my >= 449 && my <= 449 + 121);
+    returnMenuHovered = (mx >= 760 && mx <= 760 + 395 && my >= 299 && my <= 299 + 121);
   }
 }
 
@@ -228,19 +308,31 @@ void iMouse(int button, int state, int mx, int my) {
     }
   }
   /* Right-click: Fire heavy missile during boss fights */
-  if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN) {
+  if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN && !isPaused) {
     firePlayerMissile(); /* Uses missileCount from power orb pickup */
   }
 
   if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-    if (gameState == STATE_MENU) {
+    if (gameState == STATE_STARTSCREEN) {
+      gameState = STATE_MENU;
+    } else if (gameState == STATE_MENU) {
       GameState next = menuMouseClick(mx, my);
       if (next == STATE_GAME) {
         gameReset(); /* Reset everything for a fresh game */
       }
       gameState = next;
     } else if (gameState == STATE_GAME) {
-      playerShoot(); /* Fire a cannon bullet toward mouse cursor */
+      if (isPaused) {
+        if (resumeHovered) {
+          isPaused = false;
+        } else if (returnMenuHovered) {
+          gameReset();
+          gameState = STATE_MENU;
+          isPaused = false;
+        }
+      } else {
+        playerShoot(); /* Fire a cannon bullet toward mouse cursor */
+      }
     } else if (gameState == STATE_OPTIONS) {
       optionsMouseClick(mx, my);
     }
@@ -265,20 +357,30 @@ void fixedUpdate() {
         (gameState == STATE_GAME && getPhase() == PHASE_WIN)) {
       gameReset();
       gameState = STATE_GAME;
+    } else if (gameState == STATE_LEADERBOARD) {
+      leaderboardReset();
     }
   }
 
-  /* ESC returns to the main menu from any state */
-  if (isKeyPressed(27)) /* 27 = ASCII Escape */
-  {
-    if (gameState != STATE_MENU) {
-      gameReset(); /* Reset so returning to game later is clean */
-      gameState = STATE_MENU;
+  /* Persistent ESC cooldown update */
+  static int globalEscCooldown = 0;
+  if (isKeyPressed(27)) {
+    if (gameState == STATE_GAME) {
+       if (globalEscCooldown == 0) {
+           isPaused = !isPaused;
+           globalEscCooldown = 20; /* 20 frames = 1/3 second */
+       }
+    } else if (gameState != STATE_MENU) {
+       gameReset();
+       gameState = STATE_MENU;
     }
+  }
+  if (globalEscCooldown > 0) {
+      globalEscCooldown--;
   }
 
   /* Continuous Fire Control: left mouse held OR space bar held */
-  if (gameState == STATE_GAME) {
+  if (gameState == STATE_GAME && !isPaused) {
     player.isFiring = mouseLeftDown || isKeyPressed(' ');
   }
 }
@@ -326,6 +428,7 @@ int main() {
 
   /* Initialize Systems */
   menuInit(); /* Load menu textures and button layout */
+  leaderboardInit(); /* Load leaderboard texture and scores */
   gameInit(); /* Load all game textures and reset initial state */
 
   iStart(); /* Enter the iGraphics main loop (blocks forever) */
