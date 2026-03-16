@@ -231,9 +231,9 @@ void iDraw() {
       iSetColor(255, 255, 255);
       char finalScore[64];
       sprintf_s(finalScore, "Your Score: %d", player.score);
-      iText(960 - 100, 300, finalScore, GLUT_BITMAP_TIMES_ROMAN_24);
-      iText(960 - 120, 250, "Press 'R' to restart.", GLUT_BITMAP_TIMES_ROMAN_24);
-      iText(960 - 130, 200, "Press 'ESC' to escape.", GLUT_BITMAP_TIMES_ROMAN_24);
+      iText(960 - 75, 450, finalScore, GLUT_BITMAP_TIMES_ROMAN_24);
+      //iText(960 - 120, 250, "Press 'R' to restart.", GLUT_BITMAP_TIMES_ROMAN_24);
+      //iText(960 - 130, 200, "Press 'ESC' to escape.", GLUT_BITMAP_TIMES_ROMAN_24);
     } else {
       gameDraw(); /* Normal game over overlay is drawn by uiDraw */
     }
