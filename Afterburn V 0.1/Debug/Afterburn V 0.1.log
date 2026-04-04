@@ -1,18 +1,15 @@
-﻿Build started 4/4/2026 9:08:42 PM.
-     1>Project "E:\final game file\Afterburn-V-0.1-master\Afterburn V 0.1\Afterburn V 0.1.vcxproj" on node 2 (Rebuild target(s)).
+﻿Build started 3/16/2026 2:42:21 PM.
+     1>Project "E:\Game project\Game\Afterburn-V-0.1\Afterburn V 0.1\Afterburn V 0.1.vcxproj" on node 2 (Build target(s)).
      1>ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt iMain.cpp menu.cpp options.cpp
-         options.cpp
-         menu.cpp
+         E:\Softwere and games\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt iMain.cpp
          iMain.cpp
-         Generating Code...
        Link:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"E:\final game file\Afterburn-V-0.1-master\Debug\Afterburn V 0.1.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:\final game file\Afterburn-V-0.1-master\Debug\Afterburn V 0.1.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"E:\final game file\Afterburn-V-0.1-master\Debug\Afterburn V 0.1.lib" /MACHINE:X86 Debug\iMain.obj
+         E:\Softwere and games\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"E:\Game project\Game\Afterburn-V-0.1\Debug\Afterburn V 0.1.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:\Game project\Game\Afterburn-V-0.1\Debug\Afterburn V 0.1.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"E:\Game project\Game\Afterburn-V-0.1\Debug\Afterburn V 0.1.lib" /MACHINE:X86 Debug\iMain.obj
          Debug\menu.obj
          Debug\options.obj
-         Afterburn V 0.1.vcxproj -> E:\final game file\Afterburn-V-0.1-master\Debug\Afterburn V 0.1.exe
-     1>Done Building Project "E:\final game file\Afterburn-V-0.1-master\Afterburn V 0.1\Afterburn V 0.1.vcxproj" (Rebuild target(s)).
+         Afterburn V 0.1.vcxproj -> E:\Game project\Game\Afterburn-V-0.1\Debug\Afterburn V 0.1.exe
+     1>Done Building Project "E:\Game project\Game\Afterburn-V-0.1\Afterburn V 0.1\Afterburn V 0.1.vcxproj" (Build target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:06.74
+Time Elapsed 00:00:00.88
