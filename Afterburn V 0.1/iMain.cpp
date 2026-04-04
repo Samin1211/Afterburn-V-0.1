@@ -29,6 +29,7 @@ GameState gameState = STATE_STARTSCREEN;
 #include "Road.h"
 #include "UI.h"
 #include "options.h"
+#include "audio.h"
 
 /* ── Pause Menu Variables ───────────────────────────────── */
 bool isPaused = false;
@@ -87,6 +88,8 @@ void gameUpdate(void) {
         leaderboardAddScore(player.score);
         scoreRecorded = true;
       }
+      audioStopGameplay();   /* Stop the background music */
+      audioPlayGameOver();   /* Play the game-over sound  */
       gameState = STATE_GAMEOVER;
     }
   }
@@ -111,6 +114,7 @@ void gameInit(void) {
   playerInit();  /* Load player car + projectile textures */
   npcInit();     /* Load NPC car + explosion textures */
   enemyInit();   /* Load enemy, boss, truck, orb, cloud textures */
+  audioInit();   /* Pre-load game-over audio for instant playback */
 
   /* Load Pause Menu Textures */
   texPauseBg = iLoadImage("Asset\\Pause Menu files\\pause menu bg.png");
@@ -138,6 +142,7 @@ void gameInit(void) {
  * HOW TO CHANGE: Add new module reset calls here.
  * EFFECT: A clean game restart without the I/O cost of texture loading. */
 void gameReset(void) {
+  audioStopAll();  /* Clean slate — silence everything */
   roadReset();
   playerReset();
   enemyReset();
@@ -231,9 +236,9 @@ void iDraw() {
       iSetColor(255, 255, 255);
       char finalScore[64];
       sprintf_s(finalScore, "Your Score: %d", player.score);
-      iText(960 - 100, 300, finalScore, GLUT_BITMAP_TIMES_ROMAN_24);
-      iText(960 - 120, 250, "Press 'R' to restart.", GLUT_BITMAP_TIMES_ROMAN_24);
-      iText(960 - 130, 200, "Press 'ESC' to escape.", GLUT_BITMAP_TIMES_ROMAN_24);
+      iText(960 - 75, 450, finalScore, GLUT_BITMAP_TIMES_ROMAN_24);
+      //iText(960 - 120, 250, "Press 'R' to restart.", GLUT_BITMAP_TIMES_ROMAN_24);
+      //iText(960 - 130, 200, "Press 'ESC' to escape.", GLUT_BITMAP_TIMES_ROMAN_24);
     } else {
       gameDraw(); /* Normal game over overlay is drawn by uiDraw */
     }
@@ -319,6 +324,7 @@ void iMouse(int button, int state, int mx, int my) {
       GameState next = menuMouseClick(mx, my);
       if (next == STATE_GAME) {
         gameReset(); /* Reset everything for a fresh game */
+        audioPlayGameplay(); /* Start gameplay music */
       }
       gameState = next;
     } else if (gameState == STATE_GAME) {
@@ -334,7 +340,15 @@ void iMouse(int button, int state, int mx, int my) {
         playerShoot(); /* Fire a cannon bullet toward mouse cursor */
       }
     } else if (gameState == STATE_OPTIONS) {
+      bool wasMusicOn = isMusicOn;
       optionsMouseClick(mx, my);
+      /* React to music toggle change */
+      if (wasMusicOn != isMusicOn) {
+        if (!isMusicOn) {
+          audioStopAll(); /* Mute: stop everything */
+        }
+        /* Note: music resumes on next game start if toggled back on */
+      }
     }
   }
 }
@@ -357,6 +371,7 @@ void fixedUpdate() {
         (gameState == STATE_GAME && getPhase() == PHASE_WIN)) {
       gameReset();
       gameState = STATE_GAME;
+      audioPlayGameplay(); /* Restart gameplay music */
     } else if (gameState == STATE_LEADERBOARD) {
       leaderboardReset();
     }
@@ -371,7 +386,7 @@ void fixedUpdate() {
            globalEscCooldown = 20; /* 20 frames = 1/3 second */
        }
     } else if (gameState != STATE_MENU) {
-       gameReset();
+       gameReset();           /* Also calls audioStopAll() */
        gameState = STATE_MENU;
     }
   }
@@ -395,10 +410,13 @@ void iKeyboard(unsigned char key) {
     if (key == 'r' || key == 'R') {
       gameReset();            /* Reset Everything */
       gameState = STATE_GAME; /* Start new game */
+      audioPlayGameplay();    /* Restart gameplay music */
     }
     if (key == 27) {          /* ESC */
+      audioStopAll();         /* Silence audio on menu return */
       gameState = STATE_MENU; /* Return to menu */
     }
+	
     return;
   }
 }
