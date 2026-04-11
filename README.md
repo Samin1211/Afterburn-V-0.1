@@ -82,7 +82,7 @@ Open the project in Visual Studio 2013
 <img src="https://github.com/user-attachments/assets/bc7a1111-64f0-4822-8d71-e144bb2e7ca2" width="1800" height="1800">
 
 ## Youtube Link
-[CSE 1200 Project: The Fallen Kingdom](https://www.youtube.com/)
+[CSE 1200 Project: Afterburn - No Escape](https://youtu.be/yCqrMYrr-1M)
 
 ## Project Report
-[Project Report: The Fallen Kingdom](https://drive.google.com/drive/u/1/my-drive)
+[Project Report: Afterburn - No Escape](https://drive.google.com/file/d/1QklqQxyZ0LnkwYwFfpz1u5FobKDMBdo_/view?usp=sharing)
